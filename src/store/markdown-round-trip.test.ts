@@ -26,15 +26,15 @@ describe('serializeTaskLine', () => {
   }
 
   it('serialises a minimal task', () => {
-    expect(serializeTaskLine(base)).toBe('- [ ] 1 Fix login bug')
+    expect(serializeTaskLine(base)).toBe('- [ ] 1 - Fix login bug')
   })
 
   it('serialises status correctly', () => {
-    expect(serializeTaskLine({ ...base, status: 'in-progress' })).toBe('- [/] 1 Fix login bug')
-    expect(serializeTaskLine({ ...base, status: 'done' })).toBe('- [x] 1 Fix login bug')
-    expect(serializeTaskLine({ ...base, status: 'cancelled' })).toBe('- [-] 1 Fix login bug')
-    expect(serializeTaskLine({ ...base, status: 'blocked' })).toBe('- [>] 1 Fix login bug')
-    expect(serializeTaskLine({ ...base, status: 'review' })).toBe('- [~] 1 Fix login bug')
+    expect(serializeTaskLine({ ...base, status: 'in-progress' })).toBe('- [/] 1 - Fix login bug')
+    expect(serializeTaskLine({ ...base, status: 'done' })).toBe('- [x] 1 - Fix login bug')
+    expect(serializeTaskLine({ ...base, status: 'cancelled' })).toBe('- [-] 1 - Fix login bug')
+    expect(serializeTaskLine({ ...base, status: 'blocked' })).toBe('- [>] 1 - Fix login bug')
+    expect(serializeTaskLine({ ...base, status: 'review' })).toBe('- [~] 1 - Fix login bug')
   })
 
   it('serialises tags', () => {
@@ -81,8 +81,8 @@ describe('serializeTasksFile', () => {
       { id: '2', title: 'Beta',  description: '', type: 'task', status: 'done', priority: 'low', start: '', due: '', progress: 100, tags: [], subtasks: [], dependencies: [], group: null, collapsed: false, createdAt: '', updatedAt: '' },
     ]
     const out = serializeTasksFile(tasks, [null])
-    expect(out).toContain('- [ ] 1 Alpha')
-    expect(out).toContain('- [x] 2 Beta')
+    expect(out).toContain('- [ ] 1 - Alpha')
+    expect(out).toContain('- [x] 2 - Beta')
   })
 
   it('serialises grouped tasks under headings', () => {
@@ -95,8 +95,8 @@ describe('serializeTasksFile', () => {
     expect(out).toContain('## Personal')
     const workIdx = out.indexOf('## Work')
     const personalIdx = out.indexOf('## Personal')
-    const task1Idx = out.indexOf('1 Work task')
-    const task2Idx = out.indexOf('2 Personal task')
+    const task1Idx = out.indexOf('1 - Work task')
+    const task2Idx = out.indexOf('2 - Personal task')
     expect(task1Idx).toBeGreaterThan(workIdx)
     expect(task2Idx).toBeGreaterThan(personalIdx)
   })
@@ -119,24 +119,32 @@ describe('markdown round-trip', () => {
     return serializeTasksFile(tasks, groups)
   }
 
-  it('preserves a flat task list', () => {
-    const input = `- [ ] 1 Todo task\n- [x] 2 Done task\n- [-] 3 Cancelled\n`
+  it('round-trips tasks written with the dash separator', () => {
+    const input = `- [ ] 1 - Todo task\n- [x] 2 - Done task\n- [-] 3 - Cancelled\n`
     const output = roundTrip(input)
-    expect(output).toContain('- [ ] 1 Todo task')
-    expect(output).toContain('- [x] 2 Done task')
-    expect(output).toContain('- [-] 3 Cancelled')
+    expect(output).toContain('- [ ] 1 - Todo task')
+    expect(output).toContain('- [x] 2 - Done task')
+    expect(output).toContain('- [-] 3 - Cancelled')
+  })
+
+  it('also parses tasks written without the dash (backward compat)', () => {
+    const input = `- [ ] 1 Todo task\n- [x] 2 Done task\n`
+    const output = roundTrip(input)
+    // Output always uses the dash format
+    expect(output).toContain('- [ ] 1 - Todo task')
+    expect(output).toContain('- [x] 2 - Done task')
   })
 
   it('preserves subtask nesting', () => {
-    const input = `- [/] 1 Parent\n  - [ ] 1.1 Child\n  - [x] 1.2 Done child\n`
+    const input = `- [/] 1 - Parent\n  - [ ] 1.1 - Child\n  - [x] 1.2 - Done child\n`
     const output = roundTrip(input)
-    expect(output).toContain('- [/] 1 Parent')
-    expect(output).toContain('  - [ ] 1.1 Child')
-    expect(output).toContain('  - [x] 1.2 Done child')
+    expect(output).toContain('- [/] 1 - Parent')
+    expect(output).toContain('  - [ ] 1.1 - Child')
+    expect(output).toContain('  - [x] 1.2 - Done child')
   })
 
   it('preserves group headings', () => {
-    const input = `## Work\n\n- [ ] 1 Work task\n\n## Personal\n\n- [ ] 2 Personal task\n`
+    const input = `## Work\n\n- [ ] 1 - Work task\n\n## Personal\n\n- [ ] 2 - Personal task\n`
     const output = roundTrip(input)
     expect(output).toContain('## Work')
     expect(output).toContain('## Personal')
@@ -144,10 +152,10 @@ describe('markdown round-trip', () => {
   })
 
   it('preserves all inline tokens', () => {
-    const input = `- [/] 1 Fix bug #auth due:2025-01-15 start:2025-01-10 after:0 !!\n`
+    const input = `- [/] 1 - Fix bug #auth due:2025-01-15 start:2025-01-10 after:0 !!\n`
     const output = roundTrip(input)
     expect(output).toContain('[/]')
-    expect(output).toContain('1 Fix bug')
+    expect(output).toContain('1 - Fix bug')
     expect(output).toContain('#auth')
     expect(output).toContain('due:2025-01-15')
     expect(output).toContain('start:2025-01-10')
@@ -156,7 +164,7 @@ describe('markdown round-trip', () => {
   })
 
   it('normalises M/D/YY dates to ISO on round-trip', () => {
-    const input = `- [ ] 1 Task due:1/15/25\n`
+    const input = `- [ ] 1 - Task due:1/15/25\n`
     const output = roundTrip(input)
     expect(output).toContain('due:2025-01-15')
     expect(output).not.toContain('1/15/25')

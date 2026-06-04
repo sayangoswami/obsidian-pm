@@ -61,9 +61,9 @@ interface ParsedTokens {
 export function parseTaskText(text: string): ParsedTokens {
   let rest = text.trim()
 
-  // 1. ID — must be the first token
+  // 1. ID — must be the first token, optionally followed by " - " separator
   let id = makeId()
-  const idMatch = /^(\d+(?:\.\d+)*)\s+/.exec(rest)
+  const idMatch = /^(\d+(?:\.\d+)*)(?:\s+-\s+|\s+)/.exec(rest)
   if (idMatch) {
     id = idMatch[1]
     rest = rest.slice(idMatch[0].length)

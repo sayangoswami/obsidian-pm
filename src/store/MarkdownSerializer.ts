@@ -34,7 +34,7 @@ export function serializeTaskLine(task: Task, depth = 0): string {
   const indent = '  '.repeat(depth)
   const checkbox = checkboxFor(task.status)
 
-  const parts: string[] = [task.id, task.title]
+  const parts: string[] = [`${task.id} -`, task.title]
 
   if (task.tags.length > 0) parts.push(task.tags.map(t => `#${t}`).join(' '))
   if (task.start) parts.push(`start:${task.start}`)
