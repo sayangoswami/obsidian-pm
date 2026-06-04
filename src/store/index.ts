@@ -1,7 +1,6 @@
-export { ProjectStore, TaskFileNameConflictError } from './ProjectStore'
-export { parseFrontmatter, appendYaml, isOldFormat } from './YamlParser'
-export { hydrateTasks } from './YamlHydrator'
-export { serializeProject, serializeTask } from './YamlSerializer'
+export { ProjectStore, TASKS_FILE_NAME } from './ProjectStore'
+export { parseTasksFile, parseDate, parseTaskText } from './MarkdownParser'
+export { serializeTasksFile, serializeTaskLine } from './MarkdownSerializer'
 export {
   flattenTasks,
   findTask,
@@ -10,10 +9,7 @@ export {
   addTaskToTree,
   moveTaskInTree,
   cloneTaskSubtree,
-  totalLoggedHours,
-  filterArchived,
-  collectAllAssignees,
-  collectAllTags
+  collectAllTags,
 } from './TaskTreeOps'
 export type { FlatTask } from './TaskTreeOps'
 export {
@@ -22,7 +18,6 @@ export {
   applyTaskFilterPromote,
   countActiveFilters,
   isFilterActive,
-  matchesFilter
+  matchesFilter,
 } from './TaskFilter'
 export { computeSchedule, wouldCreateCycle } from './Scheduler'
-export { archiveTask, unarchiveTask } from './ArchiveOps'

@@ -48,13 +48,6 @@ export class TitleCell {
     if (task.type === 'subtask') {
       new Badge(this.el).setLabel('Sub').setSize('sm').setColor('var(--color-green)').setTooltip('Subtask')
     }
-    if (task.recurrence) {
-      new Badge(this.el).setLabel('R').setSize('sm').setColor('var(--color-blue)').setTooltip('Recurring')
-    }
-    if (task.archived) {
-      new Badge(this.el).setLabel('Archived').setSize('sm').setColor('var(--text-muted)').setTooltip('Archived')
-    }
-
     if (task.tags.length) {
       const tagRow = this.el.createDiv('pm-table-tags')
       for (const tag of task.tags) {

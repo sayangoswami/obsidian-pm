@@ -111,17 +111,6 @@ export function renderTaskBar(g: SVGGElement, task: Task, row: number, _depth: n
     )
   }
 
-  // Recurrence indicator
-  if (task.recurrence) {
-    const icon = svgEl('text', {
-      x: x + width + 4,
-      y: y + height / 2 + 5,
-      class: 'pm-gantt-bar-icon'
-    })
-    icon.textContent = 'R'
-    barGroup.appendChild(icon)
-  }
-
   // Label inside bar
   if (width > 55) {
     const label = svgEl('text', {
@@ -136,8 +125,7 @@ export function renderTaskBar(g: SVGGElement, task: Task, row: number, _depth: n
 
   // Tooltip
   const ttEl = svgEl('title', {})
-  const assigneesStr = task.assignees.length ? `\nAssignees: ${task.assignees.join(', ')}` : ''
-  ttEl.textContent = `${task.title}\n${statusConfig?.label ?? task.status} \u00b7 ${task.priority}\nStart: ${task.start || '\u2014'}  Due: ${task.due || '\u2014'}\nProgress: ${task.progress}%${assigneesStr}`
+  ttEl.textContent = `${task.title}\n${statusConfig?.label ?? task.status} \u00b7 ${task.priority}\nStart: ${task.start || '\u2014'}  Due: ${task.due || '\u2014'}\nProgress: ${task.progress}%`
   rect.appendChild(ttEl)
 
   // Drag handles

@@ -37,7 +37,7 @@ export class Notifier {
 
     let projects: Project[]
     try {
-      projects = await this.plugin.store.loadAllProjects(this.plugin.settings.projectsFolder)
+      projects = await this.plugin.store.loadAllProjects()
     } catch {
       return
     }

@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   addTaskToTree,
-  collectAllAssignees,
   collectAllTags,
   deleteTaskFromTree,
-  filterArchived,
   findTask,
   flattenTasks,
   moveTaskInTree,
-  totalLoggedHours,
   updateTaskInTree
 } from './TaskTreeOps'
 import { makeTask, type Task } from '../types'
@@ -149,44 +146,6 @@ describe('moveTaskInTree', () => {
   })
 })
 
-describe('filterArchived', () => {
-  it('drops archived tasks at each level', () => {
-    const tasks = [
-      task({ id: 'a', archived: true }),
-      task({ id: 'b', subtasks: [task({ id: 'b1', archived: true }), task({ id: 'b2' })] })
-    ]
-    const filtered = filterArchived(tasks)
-    expect(filtered.map((t) => t.id)).toEqual(['b'])
-    expect(filtered[0].subtasks.map((t) => t.id)).toEqual(['b2'])
-  })
-
-  it('does not mutate the input tree', () => {
-    const original = [task({ id: 'a', archived: true })]
-    filterArchived(original)
-    expect(original.map((t) => t.id)).toEqual(['a'])
-  })
-})
-
-describe('collectAllAssignees', () => {
-  it('returns a sorted, deduplicated list across nested tasks', () => {
-    const tasks = [
-      task({ id: 'a', assignees: ['Bob', 'Alice'] }),
-      task({ id: 'b', subtasks: [task({ id: 'b1', assignees: ['Alice', 'Carol'] })] })
-    ]
-    expect(collectAllAssignees(tasks)).toEqual(['Alice', 'Bob', 'Carol'])
-  })
-
-  it('merges the extra list in', () => {
-    const tasks = [task({ id: 'a', assignees: ['Alice'] })]
-    expect(collectAllAssignees(tasks, ['Dave'])).toEqual(['Alice', 'Dave'])
-  })
-
-  it('filters out empty strings', () => {
-    const tasks = [task({ id: 'a', assignees: ['', 'Alice'] })]
-    expect(collectAllAssignees(tasks)).toEqual(['Alice'])
-  })
-})
-
 describe('collectAllTags', () => {
   it('returns a sorted, deduplicated list', () => {
     const tasks = [
@@ -197,19 +156,3 @@ describe('collectAllTags', () => {
   })
 })
 
-describe('totalLoggedHours', () => {
-  it('returns 0 when no logs exist', () => {
-    expect(totalLoggedHours(task({ id: 'a' }))).toBe(0)
-  })
-
-  it('sums hours across logs', () => {
-    const t = task({
-      id: 'a',
-      timeLogs: [
-        { date: '2026-04-01', hours: 2, note: '' },
-        { date: '2026-04-02', hours: 3.5, note: '' }
-      ]
-    })
-    expect(totalLoggedHours(t)).toBe(5.5)
-  })
-})

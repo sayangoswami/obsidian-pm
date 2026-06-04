@@ -1,7 +1,7 @@
 import { Menu } from 'obsidian'
 import type PMPlugin from '../main'
 import { Project, Task, TaskStatus, FilterState } from '../types'
-import { flattenTasks, totalLoggedHours } from '../store/TaskTreeOps'
+import { flattenTasks } from '../store/TaskTreeOps'
 import { matchesFilter } from '../store/TaskFilter'
 import { isTaskOverdue, isTerminalStatus, getPriorityConfig } from '../utils'
 import { openTaskModal } from '../ui/ModalFactory'
@@ -74,7 +74,6 @@ export class KanbanView implements SubView {
       priorityColor,
       parentTitle,
       subtaskProgress,
-      loggedHours: totalLoggedHours(task),
       overdue: isTaskOverdue(task, this.plugin.settings.statuses)
     }
   }

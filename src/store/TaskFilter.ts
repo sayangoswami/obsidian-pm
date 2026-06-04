@@ -8,9 +8,9 @@ export function isFilterActive(filter: FilterState): boolean {
     filter.text ||
     filter.statuses.length ||
     filter.priorities.length ||
-    filter.assignees.length ||
     filter.tags.length ||
-    filter.dueDateFilter !== 'any'
+    filter.dueDateFilter !== 'any' ||
+    filter.showArchived
   )
 }
 
@@ -19,7 +19,6 @@ export function countActiveFilters(filter: FilterState): number {
   if (filter.text) count++
   if (filter.statuses.length) count++
   if (filter.priorities.length) count++
-  if (filter.assignees.length) count++
   if (filter.tags.length) count++
   if (filter.dueDateFilter !== 'any') count++
   if (filter.showArchived) count++
@@ -27,7 +26,9 @@ export function countActiveFilters(filter: FilterState): number {
 }
 
 export function matchesFilter(task: Task, filter: FilterState, statuses: StatusConfig[] = []): boolean {
-  if (task.archived && !filter.showArchived) return false
+  // showArchived=false → hide tasks whose status is terminal (done/cancelled)
+  if (!filter.showArchived && isTerminalStatus(task.status, statuses)) return false
+
   if (filter.text) {
     const q = filter.text.toLowerCase()
     if (
@@ -35,7 +36,6 @@ export function matchesFilter(task: Task, filter: FilterState, statuses: StatusC
         task.title.toLowerCase().includes(q) ||
         task.status.includes(q) ||
         task.priority.includes(q) ||
-        task.assignees.some((a) => a.toLowerCase().includes(q)) ||
         task.tags.some((t) => t.toLowerCase().includes(q))
       )
     ) {
@@ -44,7 +44,6 @@ export function matchesFilter(task: Task, filter: FilterState, statuses: StatusC
   }
   if (filter.statuses.length && !filter.statuses.includes(task.status)) return false
   if (filter.priorities.length && !filter.priorities.includes(task.priority)) return false
-  if (filter.assignees.length && !task.assignees.some((a) => filter.assignees.includes(a))) return false
   if (filter.tags.length && !task.tags.some((t) => filter.tags.includes(t))) return false
   if (filter.dueDateFilter !== 'any' && !matchDueDateFilter(task, filter.dueDateFilter, statuses)) return false
   return true
@@ -56,11 +55,6 @@ export function applyTaskFilter(tasks: Task[], filter: FilterState, statuses: St
     .map((t) => (t.subtasks.length ? { ...t, subtasks: applyTaskFilter(t.subtasks, filter, statuses) } : t))
 }
 
-/**
- * Tree-shaped filter that lifts orphaned matching descendants to the slot of
- * their dropped ancestor. Used by the gantt view so a matching subtask doesn't
- * disappear when its parent doesn't match.
- */
 export function applyTaskFilterPromote(tasks: Task[], filter: FilterState, statuses: StatusConfig[] = []): Task[] {
   const result: Task[] = []
   for (const t of tasks) {

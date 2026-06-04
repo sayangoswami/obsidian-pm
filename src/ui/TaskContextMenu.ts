@@ -1,4 +1,4 @@
-import { Menu, Notice } from 'obsidian'
+import { Menu } from 'obsidian'
 import type PMPlugin from '../main'
 import type { Task, Project } from '../types'
 import { safeAsync } from '../utils'
@@ -58,33 +58,6 @@ export function buildTaskContextMenu(menu: Menu, task: Task, ctx: TaskMenuContex
       )
   )
   menu.addSeparator()
-  if (task.archived) {
-    menu.addItem((item) =>
-      item
-        .setTitle('Unarchive')
-        .setIcon('archive-restore')
-        .onClick(
-          safeAsync(async () => {
-            await ctx.plugin.store.unarchiveTask(ctx.project, task.id)
-            new Notice('Task unarchived')
-            await ctx.onRefresh()
-          })
-        )
-    )
-  } else {
-    menu.addItem((item) =>
-      item
-        .setTitle('Archive')
-        .setIcon('archive')
-        .onClick(
-          safeAsync(async () => {
-            await ctx.plugin.store.archiveTask(ctx.project, task.id)
-            new Notice('Task archived')
-            await ctx.onRefresh()
-          })
-        )
-    )
-  }
   menu.addItem((item) =>
     item
       .setTitle('Delete task')

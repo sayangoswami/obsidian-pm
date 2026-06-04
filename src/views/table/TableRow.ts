@@ -1,6 +1,5 @@
 import { Menu } from 'obsidian'
-import { getStatusConfig, isTaskOverdue, isTerminalStatus, safeAsync, stringifyCustomValue } from '../../utils'
-import { totalLoggedHours } from '../../store/TaskTreeOps'
+import { getStatusConfig, isTaskOverdue, isTerminalStatus, safeAsync } from '../../utils'
 import { today, parsePlainDate } from '../../dates'
 import { COLOR_ACCENT } from '../../constants'
 import type { Task } from '../../types'
@@ -10,15 +9,12 @@ import { openTaskModal } from '../../ui/ModalFactory'
 import { buildTaskContextMenu } from '../../ui/TaskContextMenu'
 import { TaskRow } from '../../ui/composites/TaskRow'
 import { ActionsCell } from '../../ui/composites/cells/ActionsCell'
-import { AssigneesCell } from '../../ui/composites/cells/AssigneesCell'
-import { CustomFieldCell } from '../../ui/composites/cells/CustomFieldCell'
 import { DueDateCell } from '../../ui/composites/cells/DueDateCell'
 import { ExpandCell } from '../../ui/composites/cells/ExpandCell'
 import { PriorityCell } from '../../ui/composites/cells/PriorityCell'
 import { ProgressCell } from '../../ui/composites/cells/ProgressCell'
 import { SelectCell } from '../../ui/composites/cells/SelectCell'
 import { StatusCell } from '../../ui/composites/cells/StatusCell'
-import { TimeCell } from '../../ui/composites/cells/TimeCell'
 import { TitleCell } from '../../ui/composites/cells/TitleCell'
 
 // ─── Row orchestrator ──────────────────────────────────────────────────────────
@@ -37,7 +33,7 @@ export function renderTaskRow(
     taskId: task.id,
     depth,
     isDone,
-    isArchived: !!task.archived,
+    isArchived: false,
     isSelected: ctx.state.selectedTaskId === task.id,
     onRowClick: () => {
       ctx.state.selectedTaskId = task.id
@@ -124,8 +120,6 @@ export function renderTaskRow(
     })
   })
 
-  new AssigneesCell(row, task.assignees)
-
   const due = parsePlainDate(task.due)
   const overdue = isTaskOverdue(task, ctx.plugin.settings.statuses)
   const isNear = !overdue && due !== null && due.since(today(), { largestUnit: 'days' }).days < 3
@@ -140,12 +134,6 @@ export function renderTaskRow(
   })
 
   new ProgressCell(row, { value: task.progress, color: statusConfig?.color ?? COLOR_ACCENT })
-  new TimeCell(row, { logged: totalLoggedHours(task), estimate: task.timeEstimate ?? 0 })
-
-  for (const cf of ctx.project.customFields) {
-    const val = task.customFields[cf.id]
-    new CustomFieldCell(row, val !== undefined ? stringifyCustomValue(val) : '')
-  }
 
   new ActionsCell(row, {
     onClick: (e) => {

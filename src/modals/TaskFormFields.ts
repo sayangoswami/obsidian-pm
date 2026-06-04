@@ -1,6 +1,6 @@
 import { Menu } from 'obsidian'
 import type PMPlugin from '../main'
-import { Project, Task, TaskType, Recurrence } from '../types'
+import { Project, Task, TaskType } from '../types'
 import { flattenTasks } from '../store/TaskTreeOps'
 import { wouldCreateCycle } from '../store/Scheduler'
 import { renderPropRow, renderProgressSlider, renderChipList } from '../ui/FormField'
@@ -8,7 +8,6 @@ import { Badge } from '../ui/primitives/Badge'
 import { SegmentedControl } from '../ui/primitives/SegmentedControl'
 import { COLOR_MUTED } from '../constants'
 import { getStatusConfig, getPriorityConfig, formatBadgeText } from '../utils'
-import { renderCustomFieldInput } from './CustomFieldInputs'
 import { TaskPickerModal, TagPickerModal } from './PickerModals'
 
 export interface TaskFormFieldsContext {
@@ -154,110 +153,6 @@ export function renderTaskFormFields(container: HTMLElement, ctx: TaskFormFields
     return input
   })
 
-  // Recurrence
-  renderPropRow(container, 'Repeat', () => {
-    const wrap = createDiv('pm-prop-value pm-prop-recurrence')
-    const renderRecurrence = () => {
-      wrap.empty()
-      if (!task.recurrence) {
-        const addBtn = wrap.createEl('button', { text: '+ set recurrence', cls: 'pm-prop-add-btn' })
-        addBtn.addEventListener('click', () => {
-          task.recurrence = { interval: 'weekly', every: 1 }
-          renderRecurrence()
-        })
-      } else {
-        const rec = task.recurrence
-        const everyInput = wrap.createEl('input', { type: 'number', cls: 'pm-prop-text pm-recur-every' })
-        everyInput.value = String(rec.every)
-        everyInput.min = '1'
-        everyInput.max = '365'
-        everyInput.addEventListener('change', () => {
-          rec.every = parseInt(everyInput.value) || 1
-        })
-
-        const sel = wrap.createEl('select', { cls: 'pm-prop-select pm-recur-interval' })
-        for (const opt of ['daily', 'weekly', 'monthly', 'yearly'] as const) {
-          const o = sel.createEl('option', { value: opt, text: opt })
-          if (opt === rec.interval) o.selected = true
-        }
-        sel.addEventListener('change', () => {
-          rec.interval = sel.value as Recurrence['interval']
-        })
-
-        const endWrap = wrap.createDiv('pm-recur-end')
-        endWrap.createSpan({ text: 'Until', cls: 'pm-recur-label' })
-        const endInput = endWrap.createEl('input', { type: 'date', cls: 'pm-prop-date pm-recur-end-input' })
-        endInput.value = rec.endDate ?? ''
-        endInput.addEventListener('change', () => {
-          rec.endDate = endInput.value || undefined
-        })
-
-        const rmBtn = wrap.createEl('button', { text: '\u2715', cls: 'pm-prop-add-btn pm-recur-rm' })
-        rmBtn.addEventListener('click', () => {
-          task.recurrence = undefined
-          renderRecurrence()
-        })
-      }
-    }
-    renderRecurrence()
-    return wrap
-  })
-
-  // Assignees
-  renderPropRow(container, 'Assignees', () => {
-    const wrap = createDiv('pm-prop-value pm-prop-assignees')
-    const render = () => {
-      const all = [...new Set([...project.teamMembers, ...plugin.settings.globalTeamMembers])]
-      const remaining = all.filter((m) => !task.assignees.includes(m))
-      renderChipList(wrap, task.assignees, {
-        variant: 'accent',
-        shape: 'pill',
-        onRemove: (a) => {
-          task.assignees = task.assignees.filter((x) => x !== a)
-          render()
-        },
-        renderAdd: (el) => {
-          const addBtn = el.createEl('button', { text: '+ add', cls: 'pm-prop-add-btn' })
-          const showNameInput = () => {
-            addBtn.addClass('pm-hidden')
-            const input = el.createEl('input', { type: 'text', cls: 'pm-tag-input', placeholder: 'Name\u2026' })
-            input.focus()
-            const commit = () => {
-              const name = input.value.trim()
-              if (name && !task.assignees.includes(name)) task.assignees.push(name)
-              render()
-            }
-            input.addEventListener('keydown', (ev) => {
-              if (ev.key === 'Enter') commit()
-              if (ev.key === 'Escape') render()
-            })
-            input.addEventListener('blur', commit)
-          }
-          addBtn.addEventListener('click', (ev) => {
-            if (remaining.length) {
-              const menu = new Menu()
-              for (const m of remaining) {
-                menu.addItem((item) =>
-                  item.setTitle(m).onClick(() => {
-                    task.assignees.push(m)
-                    render()
-                  })
-                )
-              }
-              menu.addSeparator()
-              menu.addItem((item) => item.setTitle('Type a name\u2026').onClick(() => showNameInput()))
-              menu.showAtMouseEvent(ev)
-            } else {
-              showNameInput()
-            }
-          })
-        }
-      })
-    }
-    render()
-    return wrap
-  })
-
   // Tags
   renderPropRow(container, 'Tags', () => {
     const wrap = createDiv('pm-prop-value pm-prop-tags')
@@ -325,13 +220,4 @@ export function renderTaskFormFields(container: HTMLElement, ctx: TaskFormFields
     return wrap
   })
 
-  // Custom fields
-  if (project.customFields.length > 0) {
-    const cfSection = container.createDiv('pm-modal-section')
-    cfSection.createEl('h4', { text: 'Custom fields', cls: 'pm-modal-section-title' })
-    const cfProps = cfSection.createDiv('pm-modal-props')
-    for (const cf of project.customFields) {
-      renderPropRow(cfProps, cf.name, () => renderCustomFieldInput(cf, task, project, plugin))
-    }
-  }
 }

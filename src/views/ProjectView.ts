@@ -85,9 +85,8 @@ export class ProjectView extends ItemView {
     }
 
     const reloadIfRelevant = (filePath: string) => {
-      if (!this.project || !this.filePath) return false
-      const taskFolder = this.filePath.replace(/\.md$/, '_tasks')
-      return filePath.startsWith(taskFolder) || filePath === this.filePath
+      if (!this.filePath) return false
+      return filePath === this.filePath
     }
     this.fileModifyRef = this.app.vault.on('modify', (file) => {
       if (!(file instanceof TFile) || !reloadIfRelevant(file.path)) return

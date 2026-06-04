@@ -147,13 +147,14 @@ describe('computeSchedule', () => {
     expect(result.patches).toEqual([])
   })
 
-  it('ignores archived predecessors when computing earliest start', () => {
+  it('adjusts downstream task dates based on predecessor due date', () => {
     const tasks = [
-      task({ id: 'a', start: '2026-04-01', due: '2026-04-20', archived: true }),
+      task({ id: 'a', start: '2026-04-01', due: '2026-04-20' }),
       task({ id: 'b', start: '2026-04-01', due: '2026-04-05', dependencies: ['a'] })
     ]
     const result = computeSchedule(tasks, undefined, statuses)
-    expect(result.patches).toEqual([])
+    // b should be pushed to start after a finishes (2026-04-20)
+    expect(result.patches.some(p => p.taskId === 'b')).toBe(true)
   })
 
   it('detects cycles and reports them in cycles', () => {

@@ -30,7 +30,6 @@ describe('isFilterActive', () => {
   it('returns true when any list filter has entries', () => {
     expect(isFilterActive(filter({ statuses: ['todo'] }))).toBe(true)
     expect(isFilterActive(filter({ priorities: ['high'] }))).toBe(true)
-    expect(isFilterActive(filter({ assignees: ['alice'] }))).toBe(true)
     expect(isFilterActive(filter({ tags: ['urgent'] }))).toBe(true)
   })
 
@@ -38,8 +37,8 @@ describe('isFilterActive', () => {
     expect(isFilterActive(filter({ dueDateFilter: 'overdue' }))).toBe(true)
   })
 
-  it('ignores showArchived (matches legacy semantics)', () => {
-    expect(isFilterActive(filter({ showArchived: true }))).toBe(false)
+  it('returns true when showArchived is set', () => {
+    expect(isFilterActive(filter({ showArchived: true }))).toBe(true)
   })
 })
 
@@ -52,13 +51,12 @@ describe('countActiveFilters', () => {
           text: 'x',
           statuses: ['todo'],
           priorities: ['high'],
-          assignees: ['a'],
           tags: ['t'],
           dueDateFilter: 'overdue',
           showArchived: true
         })
       )
-    ).toBe(7)
+    ).toBe(6)
   })
 
   it('counts showArchived', () => {
@@ -67,28 +65,28 @@ describe('countActiveFilters', () => {
 })
 
 describe('matchesFilter', () => {
-  it('hides archived tasks when showArchived is false', () => {
-    const t = task({ id: 'a', archived: true })
-    expect(matchesFilter(t, filter())).toBe(false)
-    expect(matchesFilter(t, filter({ showArchived: true }))).toBe(true)
+  it('hides tasks with terminal status when showArchived is false', () => {
+    const statuses = [
+      { id: 'todo', label: 'To Do', color: '', icon: '', complete: false },
+      { id: 'done', label: 'Done', color: '', icon: '', complete: true },
+    ]
+    const t = task({ id: 'a', status: 'done' })
+    expect(matchesFilter(t, filter(), statuses)).toBe(false)
+    expect(matchesFilter(t, filter({ showArchived: true }), statuses)).toBe(true)
   })
 
-  it('matches text against title, status, priority, assignees, and tags', () => {
-    const t = task({ id: 'a', title: 'Refactor parser', assignees: ['Bob'], tags: ['cleanup'] })
+  it('matches text against title, status, priority, and tags', () => {
+    const t = task({ id: 'a', title: 'Refactor parser', tags: ['cleanup'] })
     expect(matchesFilter(t, filter({ text: 'parser' }))).toBe(true)
-    expect(matchesFilter(t, filter({ text: 'BOB' }))).toBe(true)
     expect(matchesFilter(t, filter({ text: 'cleanup' }))).toBe(true)
     expect(matchesFilter(t, filter({ text: 'unrelated' }))).toBe(false)
   })
 
-  it('filters by status, priority, assignees, tags', () => {
-    const t = task({ id: 'a', status: 'in-progress', priority: 'high', assignees: ['Alice'], tags: ['x'] })
+  it('filters by status, priority, tags', () => {
+    const t = task({ id: 'a', status: 'in-progress', priority: 'high', tags: ['x'] })
     expect(matchesFilter(t, filter({ statuses: ['in-progress'] }))).toBe(true)
-    expect(matchesFilter(t, filter({ statuses: ['done'] }))).toBe(false)
     expect(matchesFilter(t, filter({ priorities: ['high'] }))).toBe(true)
     expect(matchesFilter(t, filter({ priorities: ['low'] }))).toBe(false)
-    expect(matchesFilter(t, filter({ assignees: ['Alice'] }))).toBe(true)
-    expect(matchesFilter(t, filter({ assignees: ['Bob'] }))).toBe(false)
     expect(matchesFilter(t, filter({ tags: ['x'] }))).toBe(true)
     expect(matchesFilter(t, filter({ tags: ['y'] }))).toBe(false)
   })
@@ -188,13 +186,14 @@ describe('applyTaskFilterFlat', () => {
     expect(out.map((f) => f.task.id)).toEqual(['a'])
   })
 
-  it('respects showArchived', () => {
-    const tasks = [task({ id: 'a' }), task({ id: 'b', archived: true })]
+  it('respects showArchived (hides terminal-status tasks when false)', () => {
+    const statuses = [
+      { id: 'todo', label: 'To Do', color: '', icon: '', complete: false },
+      { id: 'done', label: 'Done', color: '', icon: '', complete: true },
+    ]
+    const tasks = [task({ id: 'a', status: 'todo' }), task({ id: 'b', status: 'done' })]
     const flat = flattenTasks(tasks)
-    expect(applyTaskFilterFlat(flat, filter(), DEFAULT_STATUSES).map((f) => f.task.id)).toEqual(['a'])
-    expect(applyTaskFilterFlat(flat, filter({ showArchived: true }), DEFAULT_STATUSES).map((f) => f.task.id)).toEqual([
-      'a',
-      'b'
-    ])
+    expect(applyTaskFilterFlat(flat, filter(), statuses).map((f) => f.task.id)).toEqual(['a'])
+    expect(applyTaskFilterFlat(flat, filter({ showArchived: true }), statuses).map((f) => f.task.id)).toEqual(['a', 'b'])
   })
 })

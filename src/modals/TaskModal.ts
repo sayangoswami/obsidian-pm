@@ -1,13 +1,11 @@
-import { App, ButtonComponent, Component, ExtraButtonComponent, Modal, MarkdownRenderer, Notice } from 'obsidian'
+import { App, ButtonComponent, Component, Modal, MarkdownRenderer, Notice } from 'obsidian'
 import type PMPlugin from '../main'
 import { Project, Task, makeTask } from '../types'
 import { flattenTasks } from '../store/TaskTreeOps'
-import { TaskFileNameConflictError } from '../store'
 import { safeAsync, getDefaultStatusId } from '../utils'
 import { renderStatusDot } from '../ui/StatusBadge'
 import { confirmDialog } from '../ui/ModalFactory'
 import { renderTaskFormFields } from './TaskFormFields'
-import { renderTimeTrackingPanel } from './TimeTrackingPanel'
 import { renderSubtasksPanel } from './SubtasksPanel'
 import { NoteLinkSuggest } from './NoteLinkSuggest'
 
@@ -66,12 +64,7 @@ export class TaskModal extends Modal {
       !this.saved &&
       this.task.title.trim()
     ) {
-      const conflict = this.plugin.store.findTaskFileConflict(this.project, this.task)
-      if (conflict) {
-        new Notice(`Task not saved: a note named "${conflict.fileName}" already exists.`)
-      } else {
-        void this.persistTask()
-      }
+      void this.persistTask()
     }
     this.noteSuggest?.destroy()
     this.noteSuggest = null
@@ -161,19 +154,6 @@ export class TaskModal extends Modal {
     titleInput.focus()
     titleInput.select()
 
-    if (!this.isNew && this.task.filePath) {
-      const filePath = this.task.filePath
-      new ExtraButtonComponent(header)
-        .setIcon('file-text')
-        .setTooltip('Open as note')
-        .onClick(() => {
-          this.saved = false
-          this.cancelled = false
-          this.close()
-          void this.app.workspace.openLinkText(filePath, '', true)
-        })
-    }
-
     // ── Description (preview / edit) ─────────────────────────────────────────
     const descSection = contentEl.createDiv('pm-modal-section pm-modal-desc-section')
     descSection.createEl('h4', { text: 'Description', cls: 'pm-modal-section-title' })
@@ -196,7 +176,7 @@ export class TaskModal extends Modal {
     }
 
     const hasContent = () => this.task.description.trim().length > 0
-    const sourcePath = this.task.filePath || this.project.filePath || ''
+    const sourcePath = this.project.filePath
 
     let descComp = new Component()
     descComp.load()
@@ -365,9 +345,6 @@ export class TaskModal extends Modal {
       rerender: () => this.render()
     })
 
-    // ── Time Tracking ───────────────────────────────────────────────────────
-    renderTimeTrackingPanel(contentEl, this.task)
-
     // ── Subtasks ────────────────────────────────────────────────────────────
     renderSubtasksPanel(contentEl, this.task, this.plugin)
 
@@ -375,28 +352,6 @@ export class TaskModal extends Modal {
     const footer = contentEl.createDiv('pm-modal-footer')
 
     if (!this.isNew) {
-      if (this.task.archived) {
-        new ButtonComponent(footer).setButtonText('Unarchive').onClick(
-          safeAsync(async () => {
-            await this.plugin.store.unarchiveTask(this.project, this.task.id)
-            new Notice('Task unarchived')
-            await this.onSave(this.task)
-            this.cancelled = true
-            this.close()
-          })
-        )
-      } else {
-        new ButtonComponent(footer).setButtonText('Archive').onClick(
-          safeAsync(async () => {
-            await this.plugin.store.archiveTask(this.project, this.task.id)
-            new Notice('Task archived')
-            await this.onSave(this.task)
-            this.cancelled = true
-            this.close()
-          })
-        )
-      }
-
       new ButtonComponent(footer)
         .setButtonText('Delete')
         .setWarning()
@@ -437,10 +392,6 @@ export class TaskModal extends Modal {
         this.saved = true
         this.close()
       } catch (err) {
-        if (err instanceof TaskFileNameConflictError) {
-          showTitleError(`A note named "${err.fileName}" already exists. Choose a different title.`)
-          return
-        }
         console.error('[PM]', err)
         new Notice('Something went wrong. Check the console for details.')
       } finally {

@@ -1,8 +1,7 @@
 import { App, ButtonComponent, Modal } from 'obsidian'
 import type PMPlugin from '../main'
-import { Project, CustomFieldDef, makeId, makeProject } from '../types'
+import { Project, makeProject } from '../types'
 import { safeAsync } from '../utils'
-import { Avatar } from '../ui/primitives/Avatar'
 import { COLOR_DANGER } from '../constants'
 
 const PROJECT_COLORS = [
@@ -15,22 +14,15 @@ const PROJECT_COLORS = [
   '#6ba8a0',
   '#7a9ec4',
   '#767491',
-  '#8aab6b'
+  '#8aab6b',
 ]
 
 const PROJECT_ICONS = ['📋', '🚀', '💡', '🎯', '🔬', '🏗', '📊', '🎨', '📱', '🛠', '📝', '⚡']
 
-/**
- * Project create/edit modal.
- *
- * Obsidian renders modals outside `.pm-root` in the DOM. We apply `.pm-modal`
- * to re-declare `--pm-*` CSS variables, then use CSS classes from styles.css.
- * Remaining inline styles are only for dynamic runtime values (computed colors,
- * avatar hashes, display toggles) that cannot be expressed in static CSS.
- */
 export class ProjectModal extends Modal {
   private project: Project
   private isNew: boolean
+  private parentFolder = ''
 
   constructor(
     app: App,
@@ -66,7 +58,7 @@ export class ProjectModal extends Modal {
     header.createSpan({ text: '✦', cls: 'pm-project-modal-header-icon' })
     header.createEl('h2', {
       text: this.isNew ? 'New project' : 'Project settings',
-      cls: 'pm-modal-heading'
+      cls: 'pm-modal-heading',
     })
 
     // ── Icon + Title ──────────────────────────────────────────────────────────
@@ -75,7 +67,6 @@ export class ProjectModal extends Modal {
     // Icon picker
     const iconWrap = topRow.createDiv('pm-icon-picker')
     const iconBtn = iconWrap.createEl('button', { text: this.project.icon, cls: 'pm-icon-picker-btn' })
-
     const iconGrid = iconWrap.createDiv('pm-icon-grid')
     iconGrid.addClass('pm-hidden')
     for (const emoji of PROJECT_ICONS) {
@@ -96,16 +87,24 @@ export class ProjectModal extends Modal {
     const titleInput = titleWrap.createEl('input', {
       type: 'text',
       value: this.project.title,
-      cls: 'pm-input pm-input--lg'
+      cls: 'pm-input pm-input--lg',
     })
-    titleInput.placeholder = 'My awesome project'
-    titleInput.addEventListener('input', () => {
-      this.project.title = titleInput.value
-    })
-    activeWindow.setTimeout(() => {
-      titleInput.focus()
-      titleInput.select()
-    }, 50)
+    titleInput.placeholder = 'My project'
+    titleInput.addEventListener('input', () => { this.project.title = titleInput.value })
+    activeWindow.setTimeout(() => { titleInput.focus(); titleInput.select() }, 50)
+
+    // ── Parent folder (new projects only) ─────────────────────────────────────
+    if (this.isNew) {
+      const folderSection = el.createDiv('pm-project-modal-section')
+      folderSection.createEl('label', { text: 'Location', cls: 'pm-label' })
+      const folderInput = folderSection.createEl('input', {
+        type: 'text',
+        cls: 'pm-input',
+        value: this.parentFolder,
+      })
+      folderInput.placeholder = 'Folder path (blank = vault root)'
+      folderInput.addEventListener('input', () => { this.parentFolder = folderInput.value.trim() })
+    }
 
     // ── Color ─────────────────────────────────────────────────────────────────
     const colorSection = el.createDiv('pm-project-modal-section')
@@ -135,78 +134,7 @@ export class ProjectModal extends Modal {
     const descArea = descSection.createEl('textarea', { cls: 'pm-input pm-project-desc' })
     descArea.placeholder = 'What is this project about?'
     descArea.value = this.project.description
-    descArea.addEventListener('input', () => {
-      this.project.description = descArea.value
-    })
-
-    // ── Team members ──────────────────────────────────────────────────────────
-    const memberSection = el.createDiv('pm-modal-section')
-    memberSection.createEl('label', { text: 'Team members', cls: 'pm-label' })
-    const memberWrap = memberSection.createDiv('pm-member-list')
-    const renderMembers = () => {
-      memberWrap.empty()
-      for (let i = 0; i < this.project.teamMembers.length; i++) {
-        const row = memberWrap.createDiv('pm-member-row')
-        const name = this.project.teamMembers[i] || '?'
-        new Avatar(row).setName(name)
-        const input = row.createEl('input', {
-          type: 'text',
-          value: this.project.teamMembers[i],
-          cls: 'pm-input pm-member-input'
-        })
-        input.placeholder = 'Name'
-        input.addEventListener('change', () => {
-          this.project.teamMembers[i] = input.value
-          renderMembers()
-        })
-        const rm = row.createEl('button', { text: '✕', cls: 'pm-settings-del' })
-        rm.addEventListener('click', () => {
-          this.project.teamMembers.splice(i, 1)
-          renderMembers()
-        })
-      }
-      const addBtn = memberWrap.createEl('button', {
-        text: '+ add member',
-        cls: 'pm-prop-add-btn'
-      })
-      addBtn.addEventListener('click', () => {
-        this.project.teamMembers.push('')
-        renderMembers()
-        activeWindow.setTimeout(() => {
-          const inputs = memberWrap.querySelectorAll('input')
-          inputs[inputs.length - 1]?.focus()
-        }, 50)
-      })
-    }
-    renderMembers()
-
-    // ── Custom fields ─────────────────────────────────────────────────────────
-    const cfSection = el.createDiv('pm-modal-section')
-    const cfHeader = cfSection.createDiv('pm-modal-section-header')
-    cfHeader.createSpan({ text: 'Custom fields', cls: 'pm-modal-subheading' })
-    cfHeader.createSpan({ text: 'Extra properties for tasks', cls: 'pm-modal-hint' })
-
-    const cfList = cfSection.createDiv('pm-cf-list')
-    const renderCFs = () => {
-      cfList.empty()
-      for (let i = 0; i < this.project.customFields.length; i++) {
-        this.renderCustomFieldEditor(cfList, this.project.customFields[i], i, renderCFs)
-      }
-      const addCFBtn = cfList.createEl('button', {
-        text: '+ add custom field',
-        cls: 'pm-prop-add-btn'
-      })
-      addCFBtn.addEventListener('click', () => {
-        this.project.customFields.push({
-          id: makeId(),
-          name: 'New Field',
-          type: 'text',
-          options: []
-        })
-        renderCFs()
-      })
-    }
-    renderCFs()
+    descArea.addEventListener('input', () => { this.project.description = descArea.value })
 
     // ── Footer ────────────────────────────────────────────────────────────────
     const footer = el.createDiv('pm-modal-footer')
@@ -228,96 +156,14 @@ export class ProjectModal extends Modal {
           this.project.title = title
 
           if (this.isNew) {
-            this.project.filePath = `${this.plugin.settings.projectsFolder}/${title.replace(/[\\/:*?"<>|]/g, '-')}.md`
-            await this.plugin.store.ensureFolder(this.plugin.settings.projectsFolder)
+            const created = await this.plugin.store.createProject(title, this.parentFolder)
+            await this.onSave(created)
+          } else {
+            await this.plugin.store.saveProject(this.project)
+            await this.onSave(this.project)
           }
-
-          await this.plugin.store.saveProject(this.project)
-          await this.onSave(this.project)
           this.close()
         })
       )
-  }
-
-  private renderCustomFieldEditor(
-    container: HTMLElement,
-    cf: CustomFieldDef,
-    index: number,
-    rerender: () => void
-  ): void {
-    const row = container.createDiv('pm-cf-row')
-
-    const nameInput = row.createEl('input', {
-      type: 'text',
-      value: cf.name,
-      cls: 'pm-input pm-cf-name'
-    })
-    nameInput.placeholder = 'Field name'
-    nameInput.addEventListener('change', () => {
-      this.project.customFields[index].name = nameInput.value
-    })
-
-    const typeSelect = row.createEl('select', { cls: 'pm-input pm-select pm-cf-type' })
-    const types: [CustomFieldDef['type'], string][] = [
-      ['text', 'Text'],
-      ['number', 'Number'],
-      ['date', 'Date'],
-      ['select', 'Select'],
-      ['multiselect', 'Multi-select'],
-      ['person', 'Person'],
-      ['checkbox', 'Checkbox'],
-      ['url', 'URL']
-    ]
-    for (const [val, label] of types) {
-      const opt = typeSelect.createEl('option', { value: val, text: label })
-      if (val === cf.type) opt.selected = true
-    }
-    typeSelect.addEventListener('change', () => {
-      this.project.customFields[index].type = typeSelect.value as CustomFieldDef['type']
-      rerender()
-    })
-
-    const rmBtn = row.createEl('button', { text: '✕', cls: 'pm-settings-del' })
-    rmBtn.addEventListener('click', () => {
-      this.project.customFields.splice(index, 1)
-      rerender()
-    })
-
-    if (cf.type === 'select' || cf.type === 'multiselect') {
-      const optionsWrap = row.createDiv('pm-cf-options')
-      const opts = cf.options ?? []
-      const renderOpts = () => {
-        optionsWrap.empty()
-        for (let j = 0; j < opts.length; j++) {
-          const optRow = optionsWrap.createDiv('pm-cf-opt-row')
-          const optInput = optRow.createEl('input', {
-            type: 'text',
-            value: opts[j],
-            cls: 'pm-input pm-cf-opt-input'
-          })
-          optInput.placeholder = `Option ${j + 1}`
-          optInput.addEventListener('change', () => {
-            opts[j] = optInput.value
-            cf.options = opts
-          })
-          const rmOptBtn = optRow.createEl('button', { text: '✕', cls: 'pm-settings-del' })
-          rmOptBtn.addEventListener('click', () => {
-            opts.splice(j, 1)
-            cf.options = opts
-            renderOpts()
-          })
-        }
-        const addOptBtn = optionsWrap.createEl('button', {
-          text: '+ option',
-          cls: 'pm-prop-add-btn pm-prop-add-btn--sm'
-        })
-        addOptBtn.addEventListener('click', () => {
-          opts.push('')
-          cf.options = opts
-          renderOpts()
-        })
-      }
-      renderOpts()
-    }
   }
 }

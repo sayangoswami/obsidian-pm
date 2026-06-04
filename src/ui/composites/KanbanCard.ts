@@ -1,18 +1,15 @@
 import type { Task } from '../../types'
 import { formatDateShort } from '../../utils'
-import { AvatarStack } from '../primitives/AvatarStack'
 import { Badge } from '../primitives/Badge'
 import { Chip } from '../primitives/Chip'
 import { DueDateChip } from '../primitives/DueDateChip'
 import { ProgressBar } from '../primitives/ProgressBar'
-import { TimeChip } from '../primitives/TimeChip'
 
 export interface KanbanCardProps {
   task: Task
   priorityColor?: string
   parentTitle?: string
   subtaskProgress?: { done: number; total: number }
-  loggedHours: number
   overdue: boolean
   onClick: () => void
   onContextMenu: (e: MouseEvent) => void
@@ -49,15 +46,6 @@ export class KanbanCard {
     if (task.type === 'subtask') {
       new Badge(titleRow).setLabel('Sub').setSize('sm').setColor('var(--color-green)').setTooltip('Subtask')
     }
-    if (task.recurrence) {
-      new Badge(titleRow).setLabel('R').setSize('sm').setColor('var(--color-blue)').setTooltip('Recurring')
-    }
-
-    const est = task.timeEstimate ?? 0
-    if (props.loggedHours > 0 || est > 0) {
-      new TimeChip(body).setSize('sm').setHours(props.loggedHours, est)
-    }
-
     if (task.tags.length) {
       const tagsEl = body.createDiv('pm-kanban-card-tags')
       for (const tag of task.tags.slice(0, 3)) {
@@ -66,8 +54,6 @@ export class KanbanCard {
     }
 
     const footer = body.createDiv('pm-kanban-card-footer')
-    new AvatarStack(footer).setNames(task.assignees).setMax(3).setSize('sm')
-
     if (task.due) {
       new DueDateChip(footer)
         .setVariant('label')

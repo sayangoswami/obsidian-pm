@@ -20,7 +20,7 @@ export function flattenTasks(
     const visible = !ancestorCollapsed
     result.push({ task, depth, parentId, visible })
     if (task.subtasks.length > 0) {
-      result.push(...flattenTasks(task.subtasks, depth + 1, task.id, ancestorCollapsed || task.collapsed))
+      result.push(...flattenTasks(task.subtasks, depth + 1, task.id, ancestorCollapsed || (task.collapsed ?? false)))
     }
   }
   return result
@@ -93,17 +93,12 @@ function cloneNode(source: Task, includeSubtasks: boolean, idMap: Map<string, st
   return {
     ...source,
     id: newId,
-    filePath: undefined,
     createdAt: now,
     updatedAt: now,
     collapsed: false,
     subtasks: includeSubtasks ? source.subtasks.map((s) => cloneNode(s, true, idMap)) : [],
     dependencies: [...source.dependencies],
-    assignees: [...source.assignees],
     tags: [...source.tags],
-    customFields: { ...source.customFields },
-    timeLogs: source.timeLogs ? source.timeLogs.map((l) => ({ ...l })) : undefined,
-    recurrence: source.recurrence ? { ...source.recurrence } : undefined
   }
 }
 
@@ -130,27 +125,6 @@ export function moveTaskInTree(tasks: Task[], taskId: string, targetId: string, 
   return false
 }
 
-/** Filter archived tasks from a task tree (returns a shallow copy) */
-export function filterArchived(tasks: Task[]): Task[] {
-  return tasks
-    .filter((t) => !t.archived)
-    .map((t) => (t.subtasks.length ? { ...t, subtasks: filterArchived(t.subtasks) } : t))
-}
-
-/** Collect all unique assignees from a task tree */
-export function collectAllAssignees(tasks: Task[], extra?: string[]): string[] {
-  const set = new Set<string>()
-  if (extra) for (const m of extra) set.add(m)
-  const walk = (list: Task[]) => {
-    for (const t of list) {
-      for (const a of t.assignees) set.add(a)
-      walk(t.subtasks)
-    }
-  }
-  walk(tasks)
-  return [...set].filter(Boolean).sort()
-}
-
 /** Collect all unique tags from a task tree */
 export function collectAllTags(tasks: Task[]): string[] {
   const set = new Set<string>()
@@ -164,8 +138,3 @@ export function collectAllTags(tasks: Task[]): string[] {
   return [...set].filter(Boolean).sort()
 }
 
-/** Sum all logged hours for a task */
-export function totalLoggedHours(task: Task): number {
-  if (!task.timeLogs?.length) return 0
-  return task.timeLogs.reduce((sum, log) => sum + log.hours, 0)
-}

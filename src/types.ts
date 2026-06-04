@@ -9,49 +9,23 @@ export type ViewMode = 'table' | 'gantt' | 'kanban'
 export type DueDateFilter = 'any' | 'overdue' | 'this-week' | 'this-month' | 'no-date'
 export type TaskType = 'task' | 'milestone' | 'subtask'
 
-export interface Recurrence {
-  interval: 'daily' | 'weekly' | 'monthly' | 'yearly'
-  every: number // e.g. every 2 weeks
-  endDate?: string // YYYY-MM-DD
-}
-
-export interface TimeLog {
-  date: string // YYYY-MM-DD
-  hours: number
-  note: string
-}
-
-export interface CustomFieldDef {
-  id: string
-  name: string
-  type: 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'person' | 'checkbox' | 'url'
-  options?: string[] // for select / multiselect
-  icon?: string // emoji or lucide icon name
-}
-
 export interface Task {
   id: string
   title: string
   description: string
-  type: TaskType // 'task' or 'milestone' (zero-duration)
+  type: TaskType
   status: TaskStatus
   priority: TaskPriority
   start: string // YYYY-MM-DD, empty string = unset
-  due: string // YYYY-MM-DD, empty string = unset
-  progress: number // 0–100
-  assignees: string[]
+  due: string   // YYYY-MM-DD, empty string = unset
+  progress: number // 0–100, computed from subtask completion on load
   tags: string[]
   subtasks: Task[]
-  dependencies: string[] // task IDs
-  recurrence?: Recurrence
-  timeEstimate?: number // hours
-  timeLogs?: TimeLog[]
-  customFields: Record<string, unknown>
-  collapsed: boolean
+  dependencies: string[] // task IDs (user-assigned, e.g. "1", "1.1")
+  group: string | null   // section header (## Heading) in Tasks.md; null for subtasks
+  collapsed: boolean     // runtime-only UI state, not persisted to Tasks.md
   createdAt: string
   updatedAt: string
-  filePath?: string // vault path to this task's .md file
-  archived?: boolean // runtime only — derived from file location in Archive/ subfolder
 }
 
 export interface Project {
@@ -59,13 +33,11 @@ export interface Project {
   title: string
   description: string
   color: string // hex
-  icon: string // emoji
+  icon: string  // emoji
   tasks: Task[]
-  customFields: CustomFieldDef[]
-  teamMembers: string[]
   createdAt: string
   updatedAt: string
-  filePath: string // resolved vault path
+  filePath: string // vault path to Tasks.md
   savedViews: SavedView[]
 }
 
@@ -73,10 +45,9 @@ export interface FilterState {
   text: string
   statuses: TaskStatus[]
   priorities: TaskPriority[]
-  assignees: string[]
   tags: string[]
   dueDateFilter: DueDateFilter
-  showArchived: boolean
+  showArchived: boolean // show done/cancelled tasks
 }
 
 export interface SavedView {
@@ -109,13 +80,11 @@ export interface PriorityConfig {
 }
 
 export interface PMSettings {
-  projectsFolder: string
   defaultView: ViewMode
   ganttGranularity: GanttGranularity
   ganttWeekLabel: GanttWeekLabel
   statuses: StatusConfig[]
   priorities: PriorityConfig[]
-  globalTeamMembers: string[]
   notificationsEnabled: boolean
   notificationLeadDays: number
   autoSchedule: boolean
@@ -127,35 +96,33 @@ export interface PMSettings {
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
 export const DEFAULT_STATUSES: StatusConfig[] = [
-  { id: 'todo', label: 'To Do', color: '#8a94a0', icon: '', complete: false },
-  { id: 'in-progress', label: 'In Progress', color: '#8b72be', icon: '', complete: false },
-  { id: 'blocked', label: 'Blocked', color: '#c47070', icon: '', complete: false },
-  { id: 'review', label: 'In Review', color: '#b8a06b', icon: '', complete: false },
-  { id: 'done', label: 'Done', color: '#79b58d', icon: '', complete: true },
-  { id: 'cancelled', label: 'Cancelled', color: '#767491', icon: '', complete: true }
+  { id: 'todo',        label: 'To Do',       color: '#8a94a0', icon: '',  complete: false },
+  { id: 'in-progress', label: 'In Progress',  color: '#8b72be', icon: '',  complete: false },
+  { id: 'blocked',     label: 'Blocked',      color: '#c47070', icon: '',  complete: false },
+  { id: 'review',      label: 'In Review',    color: '#b8a06b', icon: '',  complete: false },
+  { id: 'done',        label: 'Done',         color: '#79b58d', icon: '',  complete: true  },
+  { id: 'cancelled',   label: 'Cancelled',    color: '#767491', icon: '',  complete: true  },
 ]
 
 export const DEFAULT_PRIORITIES: PriorityConfig[] = [
   { id: 'critical', label: 'Critical', color: '#c47070', icon: '' },
-  { id: 'high', label: 'High', color: '#b8a06b', icon: '' },
-  { id: 'medium', label: 'Medium', color: '#8a94a0', icon: '' },
-  { id: 'low', label: 'Low', color: '#79b58d', icon: '' }
+  { id: 'high',     label: 'High',     color: '#b8a06b', icon: '' },
+  { id: 'medium',   label: 'Medium',   color: '#8a94a0', icon: '' },
+  { id: 'low',      label: 'Low',      color: '#79b58d', icon: '' },
 ]
 
 export const DEFAULT_SETTINGS: PMSettings = {
-  projectsFolder: 'Projects',
   defaultView: 'table',
   ganttGranularity: 'week',
   ganttWeekLabel: 'weekNumber',
   statuses: DEFAULT_STATUSES,
   priorities: DEFAULT_PRIORITIES,
-  globalTeamMembers: [],
-  kanbanShowSubtasks: false,
   notificationsEnabled: true,
   notificationLeadDays: 2,
   autoSchedule: true,
+  kanbanShowSubtasks: false,
   saveTaskOnClose: true,
-  projectFilters: {}
+  projectFilters: {},
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -176,15 +143,14 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     start: today().toString(),
     due: '',
     progress: 0,
-    assignees: [],
     tags: [],
     subtasks: [],
     dependencies: [],
-    customFields: {},
+    group: null,
     collapsed: false,
     createdAt: now,
     updatedAt: now,
-    ...overrides
+    ...overrides,
   }
 }
 
@@ -197,12 +163,10 @@ export function makeProject(title: string, filePath: string): Project {
     color: COLOR_ACCENT,
     icon: '📋',
     tasks: [],
-    customFields: [],
-    teamMembers: [],
     createdAt: now,
     updatedAt: now,
     filePath,
-    savedViews: []
+    savedViews: [],
   }
 }
 
@@ -211,9 +175,8 @@ export function makeDefaultFilter(): FilterState {
     text: '',
     statuses: [],
     priorities: [],
-    assignees: [],
     tags: [],
     dueDateFilter: 'any',
-    showArchived: false
+    showArchived: false,
   }
 }

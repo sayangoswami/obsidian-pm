@@ -25,7 +25,7 @@ export function renderProjectListToolbar(ctx: ProjectListContext): void {
 }
 
 export async function renderProjectListContent(ctx: ProjectListContext): Promise<void> {
-  const projects = await ctx.plugin.store.loadAllProjects(ctx.plugin.settings.projectsFolder)
+  const projects = await ctx.plugin.store.loadAllProjects()
   if (ctx.isStale()) return
   ctx.contentEl.empty()
 

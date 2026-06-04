@@ -1,6 +1,6 @@
 import { ButtonComponent, Menu } from 'obsidian'
 import type { Project, FilterState, StatusConfig, PriorityConfig, TaskPriority, DueDateFilter } from '../../../types'
-import { collectAllAssignees, collectAllTags } from '../../../store'
+import { collectAllTags } from '../../../store'
 import { countActiveFilters } from '../../../store/TaskFilter'
 import { renderFilterDropdown } from '../../FilterDropdown'
 import { Pill } from '../../primitives/Pill'
@@ -66,20 +66,6 @@ export class FilterRow {
       }
     )
 
-    const allAssignees = collectAllAssignees(project.tasks)
-    if (allAssignees.length) {
-      renderFilterDropdown(
-        this.el,
-        'Assignee',
-        filter.assignees,
-        allAssignees.map((a) => ({ id: a, label: a })),
-        (selected) => {
-          filter.assignees = selected
-          notify()
-        }
-      )
-    }
-
     const allTags = collectAllTags(project.tasks)
     if (allTags.length) {
       renderFilterDropdown(
@@ -128,7 +114,7 @@ export class FilterRow {
 
   private renderArchivedPill(notify: () => void): void {
     const { filter } = this.props
-    const pill = new Pill(this.el).setLabel('Archived').setActive(filter.showArchived)
+    const pill = new Pill(this.el).setLabel('Show done').setActive(filter.showArchived)
     pill.onClick(() => {
       filter.showArchived = !filter.showArchived
       pill.setActive(filter.showArchived)

@@ -1,4 +1,4 @@
-import { MarkdownView, Plugin, Notice } from 'obsidian'
+import { Plugin, Notice } from 'obsidian'
 import { DEFAULT_SETTINGS, PMSettings, Project } from './types'
 import { flattenTasks } from './store/TaskTreeOps'
 import { ProjectStore } from './store'
@@ -6,9 +6,8 @@ import { PMSettingTab } from './settings'
 import { ProjectView, PM_PROJECT_VIEW_TYPE } from './views/ProjectView'
 import { DashboardView, PM_DASHBOARD_VIEW_TYPE } from './views/DashboardView'
 import { PMViewRouter } from './views/PMViewRouter'
-import { openProjectModal, openTaskModal, openProjectPicker, openTaskPicker, openImportModal } from './ui/ModalFactory'
+import { openProjectModal, openTaskModal, openProjectPicker, openTaskPicker } from './ui/ModalFactory'
 import { Notifier } from './components/Notifier'
-import { migrateProjects } from './migration'
 import { safeAsync } from './utils'
 
 export default class PMPlugin extends Plugin {
@@ -52,7 +51,6 @@ export default class PMPlugin extends Plugin {
 
     this.app.workspace.onLayoutReady(
       safeAsync(async () => {
-        await migrateProjects(this)
         await this.cleanupStaleProjectFilters()
       })
     )
@@ -64,9 +62,7 @@ export default class PMPlugin extends Plugin {
     this.addCommand({
       id: 'open-projects',
       name: 'Open projects pane',
-      callback: () => {
-        void this.router.openDashboard()
-      }
+      callback: () => { void this.router.openDashboard() },
     })
 
     this.addCommand({
@@ -76,64 +72,33 @@ export default class PMPlugin extends Plugin {
         openProjectModal(this, {
           onSave: async (project) => {
             await this.router.openProjectByPath(project.filePath)
-          }
+          },
         })
-      }
+      },
     })
 
     this.addCommand({
       id: 'new-task',
       name: 'Create new task',
-      callback: () => {
-        void this.pickProjectThenCreateTask(null)
-      }
+      callback: () => { void this.pickProjectThenCreateTask(null) },
     })
 
     this.addCommand({
       id: 'new-subtask',
       name: 'Create new subtask',
-      callback: () => {
-        void this.pickProjectThenCreateTask('pick-parent')
-      }
+      callback: () => { void this.pickProjectThenCreateTask('pick-parent') },
     })
 
     this.addCommand({
       id: 'undo-last-action',
       name: 'Undo last action',
-      callback: () => {
-        void this.undoLastAction()
-      }
+      callback: () => { void this.undoLastAction() },
     })
 
     this.addCommand({
       id: 'redo-last-action',
       name: 'Redo last action',
-      callback: () => {
-        void this.redoLastAction()
-      }
-    })
-
-    this.addCommand({
-      id: 'import-notes-as-tasks',
-      name: 'Import notes as tasks',
-      callback: () => {
-        void this.importNotes()
-      }
-    })
-
-    this.addCommand({
-      id: 'open-current-as-project',
-      name: 'Open current file as project',
-      checkCallback: (checking: boolean) => {
-        const md = this.app.workspace.getActiveViewOfType(MarkdownView)
-        const file = md?.file
-        if (!file) return false
-        const cache = this.app.metadataCache.getFileCache(file)
-        if (cache?.frontmatter?.['pm-project'] !== true) return false
-        if (checking) return true
-        void md.leaf.setViewState({ type: PM_PROJECT_VIEW_TYPE, state: { filePath: file.path } })
-        return true
-      }
+      callback: () => { void this.redoLastAction() },
     })
 
     this.addSettingTab(new PMSettingTab(this.app, this))
@@ -151,6 +116,7 @@ export default class PMPlugin extends Plugin {
     if (!saved?.priorities?.length) this.settings.priorities = DEFAULT_SETTINGS.priorities
     if (!this.settings.projectFilters) this.settings.projectFilters = {}
 
+    // Ensure status configs have the complete field
     let migrated = false
     for (const s of this.settings.statuses) {
       if (s.complete === undefined) {
@@ -158,20 +124,6 @@ export default class PMPlugin extends Plugin {
         migrated = true
       }
     }
-
-    // ganttHideDone was a global gantt toggle; replaced by per-project filter.statuses
-    // excluding terminal statuses. Seed projects whose filter has no status selection yet.
-    const legacy = (saved ?? {}) as { ganttHideDone?: boolean }
-    if (legacy.ganttHideDone === true) {
-      const nonTerminal = this.settings.statuses.filter((s) => !s.complete).map((s) => s.id)
-      for (const entry of Object.values(this.settings.projectFilters)) {
-        if (entry.filter.statuses.length === 0) {
-          entry.filter.statuses = nonTerminal
-        }
-      }
-      migrated = true
-    }
-
     if (migrated) await this.saveSettings()
   }
 
@@ -200,9 +152,8 @@ export default class PMPlugin extends Plugin {
     new Notice(msg, duration)
   }
 
-  /** Show project picker, then open TaskModal to create a task (optionally pick parent for subtask) */
   private async pickProjectThenCreateTask(mode: null | 'pick-parent'): Promise<void> {
-    const projects = await this.store.loadAllProjects(this.settings.projectsFolder)
+    const projects = await this.store.loadAllProjects()
     if (!projects.length) {
       this.showNotice('No projects yet. Create a project first.')
       return
@@ -217,9 +168,7 @@ export default class PMPlugin extends Plugin {
         openTaskPicker(
           this,
           flat.map((f) => f.task),
-          (parentTask) => {
-            this.openTaskModalForProject(project, parentTask.id)
-          }
+          (parentTask) => { this.openTaskModalForProject(project, parentTask.id) }
         )
       } else {
         this.openTaskModalForProject(project, null)
@@ -233,42 +182,7 @@ export default class PMPlugin extends Plugin {
       onSave: async () => {
         await this.store.saveProject(project)
         await this.router.openProjectByPath(project.filePath)
-      }
-    })
-  }
-
-  private async importNotes(): Promise<void> {
-    const activeLeaves = this.app.workspace.getLeavesOfType(PM_PROJECT_VIEW_TYPE)
-    let activeProject: Project | null = null
-
-    for (const leaf of activeLeaves) {
-      if (!(leaf.view instanceof ProjectView)) continue
-      if (leaf.view.project) {
-        activeProject = leaf.view.project
-        break
-      }
-    }
-
-    if (activeProject) {
-      const project = activeProject
-      const onImportComplete = async () => {
-        await this.router.openProjectByPath(project.filePath)
-      }
-      openImportModal(this, activeProject, onImportComplete)
-      return
-    }
-
-    const projects = await this.store.loadAllProjects(this.settings.projectsFolder)
-    if (!projects.length) {
-      this.showNotice('No projects yet. Create a project first.')
-      return
-    }
-
-    openProjectPicker(this, projects, (project) => {
-      const onImportComplete = async () => {
-        await this.router.openProjectByPath(project.filePath)
-      }
-      openImportModal(this, project, onImportComplete)
+      },
     })
   }
 }
