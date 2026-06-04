@@ -114,10 +114,10 @@ export class FilterRow {
 
   private renderArchivedPill(notify: () => void): void {
     const { filter } = this.props
-    const pill = new Pill(this.el).setLabel('Show done').setActive(filter.showArchived)
+    const pill = new Pill(this.el).setLabel('Hide done').setActive(!filter.showArchived)
     pill.onClick(() => {
       filter.showArchived = !filter.showArchived
-      pill.setActive(filter.showArchived)
+      pill.setActive(!filter.showArchived)
       notify()
     })
   }

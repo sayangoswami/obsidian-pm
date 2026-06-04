@@ -137,7 +137,7 @@ function fillTableBody(ctx: TableContext): void {
     }
   }
 
-  if (hasGroups && !hasActiveFilter) {
+  if (hasGroups) {
     // Render per group with divider rows; sort within each group independently
     for (const group of groupOrder) {
       const topItems = flat.filter((f) => f.parentId === null && (f.task.group ?? null) === group)
@@ -159,7 +159,7 @@ function fillTableBody(ctx: TableContext): void {
       renderRows(groupRows)
     }
   } else {
-    // No named groups or filter active: flat sort
+    // No named groups: flat sort
     const topItems = flat.filter(
       (f) =>
         f.parentId === null ||

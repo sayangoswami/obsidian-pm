@@ -20,7 +20,7 @@ import {
   renderMilestoneLabels
 } from './GanttRenderer'
 import { svgEl } from '../../utils'
-import { Temporal, today } from '../../dates'
+import { Temporal, today, parsePlainDate } from '../../dates'
 import type { RendererContext } from './GanttRenderer'
 import { renderTaskLabel } from './TaskLabelRenderer'
 
@@ -242,7 +242,7 @@ export class GanttView implements SubView {
         this.scrollEl.scrollLeft = Math.max(0, dateToX(this.cfg, this.pendingScroll.anchorDate))
         this.pendingScroll = null
       } else {
-        this.scrollToToday()
+        this.scrollToTaskArea()
       }
     })
   }
@@ -251,7 +251,16 @@ export class GanttView implements SubView {
     const barsGroup = svgEl('g', { class: 'pm-gantt-bars' })
     this.svgEl.appendChild(barsGroup)
 
-    const labelCtx = { plugin: this.plugin, project: this.project, onRefresh: this.onRefresh }
+    const labelCtx = {
+      plugin: this.plugin,
+      project: this.project,
+      onRefresh: this.onRefresh,
+      onLocalRender: () => {
+        const pos = this.getScrollPosition()
+        this.setPendingScroll(pos)
+        this.render()
+      }
+    }
     let rowIndex = 0
     const renderFlatList = (tasks: Task[], depth: number) => {
       for (const task of tasks) {
@@ -289,6 +298,27 @@ export class GanttView implements SubView {
     const x = dateToX(this.cfg, today())
     const center = x - this.scrollEl.clientWidth / 2
     this.scrollEl.scrollLeft = Math.max(0, center)
+  }
+
+  private scrollToTaskArea(): void {
+    if (!this.scrollEl) return
+    const taskDates: Temporal.PlainDate[] = []
+    for (const { task } of flattenTasks(this.project.tasks)) {
+      const s = parsePlainDate(task.start)
+      const d = parsePlainDate(task.due)
+      if (s) taskDates.push(s)
+      if (d) taskDates.push(d)
+    }
+    if (taskDates.length === 0) {
+      this.scrollToToday()
+      return
+    }
+    const earliest = taskDates.reduce(
+      (min, d) => (Temporal.PlainDate.compare(d, min) < 0 ? d : min),
+      taskDates[0]
+    )
+    const x = dateToX(this.cfg, earliest)
+    this.scrollEl.scrollLeft = Math.max(0, x - 100)
   }
 
   private setAllCollapsed(collapsed: boolean): void {

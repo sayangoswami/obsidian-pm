@@ -46,10 +46,12 @@ export class KanbanView implements SubView {
   }
 
   private getTasksForStatus(status: TaskStatus): Task[] {
+    // Always show tasks in their own status column — don't hide terminal-status tasks
+    const kanbanFilter = { ...this.filter, showArchived: true }
     const candidates = this.plugin.settings.kanbanShowSubtasks
       ? flattenTasks(this.project.tasks).map((ft) => ft.task)
       : this.project.tasks
-    return candidates.filter((t) => t.status === status && matchesFilter(t, this.filter, this.plugin.settings.statuses))
+    return candidates.filter((t) => t.status === status && matchesFilter(t, kanbanFilter, this.plugin.settings.statuses))
   }
 
   private buildCardData(task: Task): KanbanCardData {

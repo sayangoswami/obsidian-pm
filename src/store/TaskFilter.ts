@@ -10,7 +10,7 @@ export function isFilterActive(filter: FilterState): boolean {
     filter.priorities.length ||
     filter.tags.length ||
     filter.dueDateFilter !== 'any' ||
-    filter.showArchived
+    !filter.showArchived
   )
 }
 
@@ -21,7 +21,7 @@ export function countActiveFilters(filter: FilterState): number {
   if (filter.priorities.length) count++
   if (filter.tags.length) count++
   if (filter.dueDateFilter !== 'any') count++
-  if (filter.showArchived) count++
+  if (!filter.showArchived) count++
   return count
 }
 

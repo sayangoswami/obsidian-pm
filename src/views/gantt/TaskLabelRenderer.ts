@@ -10,6 +10,7 @@ export interface LabelContext {
   plugin: PMPlugin
   project: Project
   onRefresh: () => Promise<void>
+  onLocalRender: () => void
 }
 
 export function renderTaskLabel(
@@ -68,7 +69,7 @@ export function renderTaskLabel(
       'click',
       safeAsync(async () => {
         await ctx.plugin.store.updateTask(ctx.project, task.id, { collapsed: !task.collapsed })
-        await ctx.onRefresh()
+        ctx.onLocalRender()
       })
     )
   } else {

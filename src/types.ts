@@ -177,6 +177,6 @@ export function makeDefaultFilter(): FilterState {
     priorities: [],
     tags: [],
     dueDateFilter: 'any',
-    showArchived: false,
+    showArchived: true,
   }
 }

@@ -3,7 +3,7 @@ import { getStatusConfig, isTaskOverdue, isTerminalStatus, safeAsync } from '../
 import { today, parsePlainDate } from '../../dates'
 import { COLOR_ACCENT } from '../../constants'
 import type { Task } from '../../types'
-import { updateSelectCheckboxes, getVisibleTaskIds } from './TableRenderer'
+import { updateSelectCheckboxes, getVisibleTaskIds, refreshTableBody } from './TableRenderer'
 import type { TableContext, TableState } from './TableRenderer'
 import { openTaskModal } from '../../ui/ModalFactory'
 import { buildTaskContextMenu } from '../../ui/TaskContextMenu'
@@ -73,7 +73,7 @@ export function renderTaskRow(
     collapsed: task.collapsed,
     onToggle: safeAsync(async () => {
       await ctx.plugin.store.updateTask(ctx.project, task.id, { collapsed: !task.collapsed })
-      await ctx.onRefresh()
+      refreshTableBody(ctx)
     })
   })
 
