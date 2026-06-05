@@ -3,12 +3,12 @@ import type { Task, TaskPriority, TaskStatus } from '../types'
 // ─── Status mapping ───────────────────────────────────────────────────────────
 
 const STATUS_TO_CHECKBOX: Record<TaskStatus, string> = {
-  'todo':        ' ',
+  todo: ' ',
   'in-progress': '/',
-  'blocked':     '>',
-  'review':      '~',
-  'done':        'x',
-  'cancelled':   '-',
+  blocked: '>',
+  review: '~',
+  done: 'x',
+  cancelled: '-'
 }
 
 function checkboxFor(status: TaskStatus): string {
@@ -19,8 +19,8 @@ function checkboxFor(status: TaskStatus): string {
 
 function priorityMarker(priority: TaskPriority): string {
   if (priority === 'critical') return ' !!!'
-  if (priority === 'high')     return ' !!'
-  if (priority === 'medium')   return ' !'
+  if (priority === 'high') return ' !!'
+  if (priority === 'medium') return ' !'
   return ''
 }
 
@@ -31,7 +31,7 @@ function priorityMarker(priority: TaskPriority): string {
  * Subtasks are serialised separately with increased indentation.
  */
 export function serializeTaskLine(task: Task, depth = 0): string {
-  const indent = '  '.repeat(depth)
+  const indent = '\t'.repeat(depth)
   const checkbox = checkboxFor(task.status)
 
   // Title ends with a period; metadata follows after it
@@ -39,10 +39,10 @@ export function serializeTaskLine(task: Task, depth = 0): string {
 
   // Date clause: "from START, by DUE" | "from START" | "by DUE"
   if (task.start && task.due) parts.push(`from ${task.start}, by ${task.due}`)
-  else if (task.start)        parts.push(`from ${task.start}`)
-  else if (task.due)          parts.push(`by ${task.due}`)
+  else if (task.start) parts.push(`from ${task.start}`)
+  else if (task.due) parts.push(`by ${task.due}`)
 
-  if (task.tags.length > 0) parts.push(task.tags.map(t => `#${t}`).join(' '))
+  if (task.tags.length > 0) parts.push(task.tags.map((t) => `#${t}`).join(' '))
   if (task.dependencies.length > 0) parts.push(`after:${task.dependencies.join(',')}`)
 
   const priority = priorityMarker(task.priority)
@@ -78,7 +78,7 @@ export function serializeTasksFile(tasks: Task[], groupOrder: Array<string | nul
     const groupTasks = byGroup.get(group) ?? []
     if (group !== null) {
       // Write the heading followed by its tasks
-      const taskLines = groupTasks.flatMap(t => serializeTaskSubtree(t, 0))
+      const taskLines = groupTasks.flatMap((t) => serializeTaskSubtree(t, 0))
       if (taskLines.length > 0) {
         sections.push(`## ${group}\n\n${taskLines.join('\n')}`)
       } else {
@@ -86,7 +86,7 @@ export function serializeTasksFile(tasks: Task[], groupOrder: Array<string | nul
       }
     } else {
       // Ungrouped tasks written before any headers
-      const taskLines = groupTasks.flatMap(t => serializeTaskSubtree(t, 0))
+      const taskLines = groupTasks.flatMap((t) => serializeTaskSubtree(t, 0))
       if (taskLines.length > 0) sections.push(taskLines.join('\n'))
     }
   }
@@ -94,7 +94,7 @@ export function serializeTasksFile(tasks: Task[], groupOrder: Array<string | nul
   // Include any groups not in groupOrder (shouldn't normally happen, but be safe)
   for (const [group, groupTasks] of byGroup) {
     if (groupOrder.includes(group)) continue
-    const taskLines = groupTasks.flatMap(t => serializeTaskSubtree(t, 0))
+    const taskLines = groupTasks.flatMap((t) => serializeTaskSubtree(t, 0))
     if (group !== null) {
       sections.push(`## ${group}\n\n${taskLines.join('\n')}`)
     } else if (taskLines.length > 0) {
@@ -109,9 +109,8 @@ export function serializeTasksFile(tasks: Task[], groupOrder: Array<string | nul
 function serializeTaskSubtree(task: Task, depth: number): string[] {
   const lines: string[] = [serializeTaskLine(task, depth)]
 
-  // Description lines: indented to align with the title text (depth*2 + 6 spaces)
   if (task.description.trim()) {
-    const descIndent = '  '.repeat(depth) + '      '
+    const descIndent = '\t'.repeat(depth + 1)
     for (const descLine of task.description.split('\n')) {
       lines.push(`${descIndent}${descLine}`)
     }

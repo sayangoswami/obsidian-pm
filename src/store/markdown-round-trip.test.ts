@@ -22,7 +22,7 @@ describe('serializeTaskLine', () => {
     group: null,
     collapsed: false,
     createdAt: '',
-    updatedAt: '',
+    updatedAt: ''
   }
 
   it('serialises a minimal task with trailing period', () => {
@@ -72,8 +72,8 @@ describe('serializeTaskLine', () => {
 
   it('indents subtasks correctly', () => {
     expect(serializeTaskLine(base, 0)).toMatch(/^- \[/)
-    expect(serializeTaskLine(base, 1)).toMatch(/^  - \[/)
-    expect(serializeTaskLine(base, 2)).toMatch(/^    - \[/)
+    expect(serializeTaskLine(base, 1)).toMatch(/^\t- \[/)
+    expect(serializeTaskLine(base, 2)).toMatch(/^\t\t- \[/)
   })
 })
 
@@ -82,8 +82,42 @@ describe('serializeTaskLine', () => {
 describe('serializeTasksFile', () => {
   it('serialises ungrouped tasks', () => {
     const tasks: Task[] = [
-      { id: '1', title: 'Alpha', description: '', type: 'task', status: 'todo', priority: 'low', start: '', due: '', progress: 0, tags: [], subtasks: [], dependencies: [], group: null, collapsed: false, createdAt: '', updatedAt: '' },
-      { id: '2', title: 'Beta',  description: '', type: 'task', status: 'done', priority: 'low', start: '', due: '', progress: 100, tags: [], subtasks: [], dependencies: [], group: null, collapsed: false, createdAt: '', updatedAt: '' },
+      {
+        id: '1',
+        title: 'Alpha',
+        description: '',
+        type: 'task',
+        status: 'todo',
+        priority: 'low',
+        start: '',
+        due: '',
+        progress: 0,
+        tags: [],
+        subtasks: [],
+        dependencies: [],
+        group: null,
+        collapsed: false,
+        createdAt: '',
+        updatedAt: ''
+      },
+      {
+        id: '2',
+        title: 'Beta',
+        description: '',
+        type: 'task',
+        status: 'done',
+        priority: 'low',
+        start: '',
+        due: '',
+        progress: 100,
+        tags: [],
+        subtasks: [],
+        dependencies: [],
+        group: null,
+        collapsed: false,
+        createdAt: '',
+        updatedAt: ''
+      }
     ]
     const out = serializeTasksFile(tasks, [null])
     expect(out).toContain('- [ ] 1 - Alpha.')
@@ -92,8 +126,42 @@ describe('serializeTasksFile', () => {
 
   it('serialises grouped tasks under headings', () => {
     const tasks: Task[] = [
-      { id: '1', title: 'Work task',     description: '', type: 'task', status: 'todo', priority: 'low', start: '', due: '', progress: 0, tags: [], subtasks: [], dependencies: [], group: 'Work',     collapsed: false, createdAt: '', updatedAt: '' },
-      { id: '2', title: 'Personal task', description: '', type: 'task', status: 'todo', priority: 'low', start: '', due: '', progress: 0, tags: [], subtasks: [], dependencies: [], group: 'Personal', collapsed: false, createdAt: '', updatedAt: '' },
+      {
+        id: '1',
+        title: 'Work task',
+        description: '',
+        type: 'task',
+        status: 'todo',
+        priority: 'low',
+        start: '',
+        due: '',
+        progress: 0,
+        tags: [],
+        subtasks: [],
+        dependencies: [],
+        group: 'Work',
+        collapsed: false,
+        createdAt: '',
+        updatedAt: ''
+      },
+      {
+        id: '2',
+        title: 'Personal task',
+        description: '',
+        type: 'task',
+        status: 'todo',
+        priority: 'low',
+        start: '',
+        due: '',
+        progress: 0,
+        tags: [],
+        subtasks: [],
+        dependencies: [],
+        group: 'Personal',
+        collapsed: false,
+        createdAt: '',
+        updatedAt: ''
+      }
     ]
     const out = serializeTasksFile(tasks, ['Work', 'Personal'])
     expect(out).toContain('## Work')
@@ -108,8 +176,42 @@ describe('serializeTasksFile', () => {
 
   it('preserves group order from groupOrder', () => {
     const tasks: Task[] = [
-      { id: '1', title: 'B task', description: '', type: 'task', status: 'todo', priority: 'low', start: '', due: '', progress: 0, tags: [], subtasks: [], dependencies: [], group: 'Beta',  collapsed: false, createdAt: '', updatedAt: '' },
-      { id: '2', title: 'A task', description: '', type: 'task', status: 'todo', priority: 'low', start: '', due: '', progress: 0, tags: [], subtasks: [], dependencies: [], group: 'Alpha', collapsed: false, createdAt: '', updatedAt: '' },
+      {
+        id: '1',
+        title: 'B task',
+        description: '',
+        type: 'task',
+        status: 'todo',
+        priority: 'low',
+        start: '',
+        due: '',
+        progress: 0,
+        tags: [],
+        subtasks: [],
+        dependencies: [],
+        group: 'Beta',
+        collapsed: false,
+        createdAt: '',
+        updatedAt: ''
+      },
+      {
+        id: '2',
+        title: 'A task',
+        description: '',
+        type: 'task',
+        status: 'todo',
+        priority: 'low',
+        start: '',
+        due: '',
+        progress: 0,
+        tags: [],
+        subtasks: [],
+        dependencies: [],
+        group: 'Alpha',
+        collapsed: false,
+        createdAt: '',
+        updatedAt: ''
+      }
     ]
     const out = serializeTasksFile(tasks, ['Beta', 'Alpha'])
     expect(out.indexOf('## Beta')).toBeLessThan(out.indexOf('## Alpha'))
@@ -117,12 +219,29 @@ describe('serializeTasksFile', () => {
 
   it('serialises description lines indented below the task', () => {
     const tasks: Task[] = [
-      { id: '1', title: 'Fix bug', description: 'Line one.\nLine two.', type: 'task', status: 'todo', priority: 'low', start: '', due: '', progress: 0, tags: [], subtasks: [], dependencies: [], group: null, collapsed: false, createdAt: '', updatedAt: '' },
+      {
+        id: '1',
+        title: 'Fix bug',
+        description: 'Line one.\nLine two.',
+        type: 'task',
+        status: 'todo',
+        priority: 'low',
+        start: '',
+        due: '',
+        progress: 0,
+        tags: [],
+        subtasks: [],
+        dependencies: [],
+        group: null,
+        collapsed: false,
+        createdAt: '',
+        updatedAt: ''
+      }
     ]
     const out = serializeTasksFile(tasks, [null])
     expect(out).toContain('- [ ] 1 - Fix bug.')
-    expect(out).toContain('      Line one.')
-    expect(out).toContain('      Line two.')
+    expect(out).toContain('\tLine one.')
+    expect(out).toContain('\tLine two.')
   })
 })
 
@@ -179,8 +298,8 @@ describe('markdown round-trip', () => {
     const input = `- [/] 1 - Parent.\n  - [ ] 1.1 - Child.\n  - [x] 1.2 - Done child.\n`
     const output = roundTrip(input)
     expect(output).toContain('- [/] 1 - Parent.')
-    expect(output).toContain('  - [ ] 1.1 - Child.')
-    expect(output).toContain('  - [x] 1.2 - Done child.')
+    expect(output).toContain('\t- [ ] 1.1 - Child.')
+    expect(output).toContain('\t- [x] 1.2 - Done child.')
   })
 
   it('preserves group headings', () => {
@@ -195,8 +314,8 @@ describe('markdown round-trip', () => {
     const input = `- [ ] 1 - Fix bug.\n      First line.\n      Second line.\n- [ ] 2 - Other task.\n`
     const output = roundTrip(input)
     expect(output).toContain('- [ ] 1 - Fix bug.')
-    expect(output).toContain('      First line.')
-    expect(output).toContain('      Second line.')
+    expect(output).toContain('\tFirst line.')
+    expect(output).toContain('\tSecond line.')
     expect(output).toContain('- [ ] 2 - Other task.')
   })
 

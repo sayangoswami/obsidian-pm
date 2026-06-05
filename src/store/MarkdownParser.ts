@@ -8,15 +8,25 @@ const CHECKBOX_TO_STATUS: Record<string, TaskStatus> = {
   '/': 'in-progress',
   '>': 'blocked',
   '~': 'review',
-  'x': 'done',
-  '-': 'cancelled',
+  x: 'done',
+  '-': 'cancelled'
 }
 
 // ─── Date parsing ─────────────────────────────────────────────────────────────
 
 const MONTH_NAMES: Record<string, number> = {
-  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
-  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12
 }
 
 /** Parse YYYY-MM-DD, M/D/YY, M/D/YYYY, or "D Mon" → YYYY-MM-DD. Returns '' on failure. */
@@ -62,7 +72,8 @@ interface ParsedTokens {
 }
 
 // Matches M/D/YY, M/D/YYYY, YYYY-MM-DD, or "D Mon" / "DD Mon"
-const DATE_PAT = /\d{1,2}\/\d{1,2}\/(?:\d{2}|\d{4})|\d{4}-\d{2}-\d{2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/
+const DATE_PAT =
+  /\d{1,2}\/\d{1,2}\/(?:\d{2}|\d{4})|\d{4}-\d{2}-\d{2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/
 
 /**
  * Extract structured tokens from the raw text after `- [X] `.
@@ -94,10 +105,7 @@ export function parseTaskText(text: string): ParsedTokens {
   // 3. Dates — new format: "from DATE[, by DATE]" (combined first to avoid orphan commas)
   let start = ''
   let due = ''
-  const fromByRe = new RegExp(
-    `\\bfrom\\s+(${DATE_PAT.source})(?:\\s*,?\\s*by\\s+(${DATE_PAT.source}))?`,
-    'i'
-  )
+  const fromByRe = new RegExp(`\\bfrom\\s+(${DATE_PAT.source})(?:\\s*,?\\s*by\\s+(${DATE_PAT.source}))?`, 'i')
   rest = rest.replace(fromByRe, (_, startRaw: string, dueRaw?: string) => {
     start = parseDate(startRaw)
     if (dueRaw) due = parseDate(dueRaw)
@@ -121,7 +129,12 @@ export function parseTaskText(text: string): ParsedTokens {
   // 4. after:ID1,ID2,...
   const dependencies: string[] = []
   rest = rest.replace(/\bafter:([\d.,]+)/i, (_, raw: string) => {
-    dependencies.push(...raw.split(',').map((s: string) => s.trim()).filter(Boolean))
+    dependencies.push(
+      ...raw
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+    )
     return ''
   })
 
@@ -140,7 +153,7 @@ export function parseTaskText(text: string): ParsedTokens {
   // Strip trailing period (sentence terminator separating title from metadata)
   const title = rest.replace(/\s+/g, ' ').trim().replace(/\.$/, '')
 
-  return { id, title, tags: tags.filter(t => t !== 'milestone'), due, start, priority, dependencies, type }
+  return { id, title, tags: tags.filter((t) => t !== 'milestone'), due, start, priority, dependencies, type }
 }
 
 // ─── Parser ───────────────────────────────────────────────────────────────────
@@ -160,8 +173,8 @@ export interface ParsedFile {
  *
  * Structure rules:
  * - `## Heading` lines start a named group (any level heading).
- * - `- [X] ...` lines are task list items; indentation (2 spaces per level)
- *   determines parent-child relationships.
+ * - `- [X] ...` lines are task list items; indentation (one tab per level,
+ *   or 2 spaces per level for backward compatibility) determines parent-child relationships.
  * - Non-task, non-heading lines that immediately follow a task (no blank line
  *   in between) are collected as that task's description.
  * - Subtasks inherit their parent's group (group is only set on top-level tasks).
@@ -210,7 +223,8 @@ export function parseTasksFile(content: string): ParsedFile {
     const taskMatch = /^(\s*)- \[(.)\] (.+)$/.exec(line)
     if (taskMatch) {
       const [, indent, checkbox, rawText] = taskMatch
-      const depth = Math.floor(indent.length / 2)
+      const tabCount = (indent.match(/\t/g) ?? []).length
+      const depth = tabCount > 0 ? tabCount : Math.floor(indent.length / 2)
       const status = CHECKBOX_TO_STATUS[checkbox] ?? 'todo'
       const tokens = parseTaskText(rawText)
 
@@ -231,7 +245,7 @@ export function parseTasksFile(content: string): ParsedFile {
         group: depth === 0 ? currentGroup : null,
         collapsed: false,
         createdAt: now,
-        updatedAt: now,
+        updatedAt: now
       }
 
       // Pop stack back to the correct parent depth
@@ -256,9 +270,7 @@ export function parseTasksFile(content: string): ParsedFile {
     // Description line — attach to the most recent task
     if (lastTask) {
       const stripped = line.trim()
-      lastTask.description = lastTask.description
-        ? `${lastTask.description}\n${stripped}`
-        : stripped
+      lastTask.description = lastTask.description ? `${lastTask.description}\n${stripped}` : stripped
     }
   }
 
@@ -275,8 +287,6 @@ function computeProgress(task: Task): number {
     return task.progress
   }
   const childProgressValues = task.subtasks.map(computeProgress)
-  task.progress = Math.round(
-    childProgressValues.reduce((sum, p) => sum + p, 0) / childProgressValues.length
-  )
+  task.progress = Math.round(childProgressValues.reduce((sum, p) => sum + p, 0) / childProgressValues.length)
   return task.progress
 }
