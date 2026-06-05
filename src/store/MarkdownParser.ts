@@ -14,7 +14,12 @@ const CHECKBOX_TO_STATUS: Record<string, TaskStatus> = {
 
 // ─── Date parsing ─────────────────────────────────────────────────────────────
 
-/** Parse YYYY-MM-DD, M/D/YY, or M/D/YYYY → YYYY-MM-DD string. Returns '' on failure. */
+const MONTH_NAMES: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+}
+
+/** Parse YYYY-MM-DD, M/D/YY, M/D/YYYY, or "D Mon" → YYYY-MM-DD. Returns '' on failure. */
 export function parseDate(raw: string): string {
   if (!raw) return ''
 
@@ -29,6 +34,15 @@ export function parseDate(raw: string): string {
     const mm = m.padStart(2, '0')
     const dd = d.padStart(2, '0')
     return `${year}-${mm}-${dd}`
+  }
+
+  // "D Mon" or "DD Mon" — year inferred as current year
+  const named = /^(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)$/i.exec(raw)
+  if (named) {
+    const day = parseInt(named[1], 10)
+    const month = MONTH_NAMES[named[2].toLowerCase()]
+    const year = new Date().getFullYear()
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
 
   return ''
@@ -47,8 +61,8 @@ interface ParsedTokens {
   type: TaskType
 }
 
-// Matches M/D/YY, M/D/YYYY, or YYYY-MM-DD
-const DATE_PAT = /\d{1,2}\/\d{1,2}\/(?:\d{2}|\d{4})|\d{4}-\d{2}-\d{2}/
+// Matches M/D/YY, M/D/YYYY, YYYY-MM-DD, or "D Mon" / "DD Mon"
+const DATE_PAT = /\d{1,2}\/\d{1,2}\/(?:\d{2}|\d{4})|\d{4}-\d{2}-\d{2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/
 
 /**
  * Extract structured tokens from the raw text after `- [X] `.

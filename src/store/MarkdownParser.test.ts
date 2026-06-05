@@ -20,6 +20,19 @@ describe('parseDate', () => {
     expect(parseDate('3/5/25')).toBe('2025-03-05')
   })
 
+  it('parses "D Mon" using current year', () => {
+    const year = new Date().getFullYear()
+    expect(parseDate('21 Jun')).toBe(`${year}-06-21`)
+    expect(parseDate('5 Jan')).toBe(`${year}-01-05`)
+    expect(parseDate('15 Dec')).toBe(`${year}-12-15`)
+  })
+
+  it('parses "D Mon" case-insensitively', () => {
+    const year = new Date().getFullYear()
+    expect(parseDate('21 jun')).toBe(`${year}-06-21`)
+    expect(parseDate('21 JUN')).toBe(`${year}-06-21`)
+  })
+
   it('returns empty string for empty input', () => {
     expect(parseDate('')).toBe('')
   })
@@ -90,6 +103,19 @@ describe('parseTaskText', () => {
     const r = parseTaskText('1 - Start work. from 2025-03-01')
     expect(r.start).toBe('2025-03-01')
     expect(r.due).toBe('')
+  })
+
+  it('extracts "by D Mon" as due date', () => {
+    const year = new Date().getFullYear()
+    const r = parseTaskText('1 - Fix bug. by 21 Jun')
+    expect(r.due).toBe(`${year}-06-21`)
+  })
+
+  it('extracts "from D Mon, by D Mon"', () => {
+    const year = new Date().getFullYear()
+    const r = parseTaskText('1 - Task. from 1 Jun, by 21 Jun')
+    expect(r.start).toBe(`${year}-06-01`)
+    expect(r.due).toBe(`${year}-06-21`)
   })
 
   it('extracts legacy "due:DATE" (backward compat)', () => {
