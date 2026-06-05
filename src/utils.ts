@@ -9,18 +9,20 @@ export function stringToColor(s: string): string {
   return `hsl(${Math.abs(hash) % 360}, 55%, 45%)`
 }
 
+const MONTH_ABBRS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
 /** Short date: "Mar 28" */
 export function formatDateShort(iso: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const d = parsePlainDate(iso)
+  if (!d) return ''
+  return `${MONTH_ABBRS[d.month - 1]} ${d.day}`
 }
 
 /** Long date: "Mar 28, '26" */
 export function formatDateLong(iso: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
+  const d = parsePlainDate(iso)
+  if (!d) return ''
+  return `${MONTH_ABBRS[d.month - 1]} ${d.day}, '${String(d.year).slice(-2)}`
 }
 
 /** Is a status marked as terminal (complete) in the config? */
