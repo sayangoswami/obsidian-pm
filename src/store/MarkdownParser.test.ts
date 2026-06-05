@@ -134,6 +134,11 @@ describe('parseTaskText', () => {
     expect(r.dependencies).toEqual(['1.1'])
   })
 
+  it('extracts dependency with space after colon', () => {
+    const r = parseTaskText('1.3 - Freeze templates. by 2026-06-13. after: 1.1.')
+    expect(r.dependencies).toEqual(['1.1'])
+  })
+
   it('extracts multiple dependencies', () => {
     const r = parseTaskText('3 - Deploy. after:1,2')
     expect(r.dependencies).toEqual(['1', '2'])
@@ -195,12 +200,10 @@ describe('parseTasksFile', () => {
       '- [>] 3 - blocked.',
       '- [~] 4 - review.',
       '- [x] 5 - done.',
-      '- [-] 6 - cancelled.',
+      '- [-] 6 - cancelled.'
     ].join('\n')
     const { tasks } = parseTasksFile(content)
-    expect(tasks.map(t => t.status)).toEqual([
-      'todo', 'in-progress', 'blocked', 'review', 'done', 'cancelled',
-    ])
+    expect(tasks.map((t) => t.status)).toEqual(['todo', 'in-progress', 'blocked', 'review', 'done', 'cancelled'])
   })
 
   it('parses nested subtasks', () => {

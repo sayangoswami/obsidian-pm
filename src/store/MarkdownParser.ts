@@ -128,9 +128,10 @@ export function parseTaskText(text: string): ParsedTokens {
 
   // 4. after:ID1,ID2,...
   const dependencies: string[] = []
-  rest = rest.replace(/\bafter:([\d.,]+)/i, (_, raw: string) => {
+  rest = rest.replace(/\bafter:\s*([\d.,]+)/i, (_, raw: string) => {
     dependencies.push(
       ...raw
+        .replace(/\.+$/, '')
         .split(',')
         .map((s: string) => s.trim())
         .filter(Boolean)

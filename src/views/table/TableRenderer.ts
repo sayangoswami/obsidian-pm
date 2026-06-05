@@ -9,7 +9,7 @@ import { renderTaskRow, updateSelectedRow, updateSelectAllCheckbox } from './Tab
 // Columns: select-all | expand | title | status | priority | due | progress | actions = 8
 const TOTAL_COLS = 8
 
-export type SortKey = 'title' | 'status' | 'priority' | 'due' | 'progress'
+export type SortKey = 'none' | 'title' | 'status' | 'priority' | 'due' | 'progress'
 export type SortDir = 'asc' | 'desc'
 
 export interface TableState {
@@ -54,12 +54,12 @@ export function renderTable(ctx: TableContext): void {
   })
 
   const cols: { key: SortKey | null; label: string; width?: string }[] = [
-    { key: null,       label: '',         width: '32px'  },
-    { key: 'title',    label: 'Task',     width: 'auto'  },
-    { key: 'status',   label: 'Status',   width: '130px' },
+    { key: null, label: '', width: '32px' },
+    { key: 'title', label: 'Task', width: 'auto' },
+    { key: 'status', label: 'Status', width: '130px' },
     { key: 'priority', label: 'Priority', width: '110px' },
-    { key: 'due',      label: 'Due',      width: '110px' },
-    { key: 'progress', label: 'Progress', width: '120px' },
+    { key: 'due', label: 'Due', width: '110px' },
+    { key: 'progress', label: 'Progress', width: '120px' }
   ]
 
   for (const col of cols) {
@@ -73,7 +73,7 @@ export function renderTable(ctx: TableContext): void {
       if (ctx.state.sortKey === col.key) {
         th.createSpan({
           text: ctx.state.sortDir === 'asc' ? ' ↑' : ' ↓',
-          cls: 'pm-sort-indicator',
+          cls: 'pm-sort-indicator'
         })
       }
       th.addEventListener('click', () => {
@@ -116,7 +116,10 @@ function fillTableBody(ctx: TableContext): void {
   const seenGroups = new Set<string | null>()
   for (const task of ctx.project.tasks) {
     const g = task.group ?? null
-    if (!seenGroups.has(g)) { seenGroups.add(g); groupOrder.push(g) }
+    if (!seenGroups.has(g)) {
+      seenGroups.add(g)
+      groupOrder.push(g)
+    }
   }
   const hasGroups = groupOrder.some((g) => g !== null)
 
@@ -161,9 +164,7 @@ function fillTableBody(ctx: TableContext): void {
   } else {
     // No named groups: flat sort
     const topItems = flat.filter(
-      (f) =>
-        f.parentId === null ||
-        (hasActiveFilter && f.parentId !== null && !filteredIds.has(f.parentId))
+      (f) => f.parentId === null || (hasActiveFilter && f.parentId !== null && !filteredIds.has(f.parentId))
     )
     topItems.sort((a, b) => compareTask(a.task, b.task, ctx.state, ctx.plugin.settings.statuses))
     const allRows: FlatTask[] = []
@@ -210,7 +211,10 @@ export function handleTableKeyDown(e: KeyboardEvent, ctx: TableContext): void {
     (active instanceof HTMLElement && active.contentEditable === 'true')
 
   if (e.key === 'Escape') {
-    if (isInput) { active.blur(); return }
+    if (isInput) {
+      active.blur()
+      return
+    }
     if (ctx.state.selectedTaskIds.size > 0) {
       ctx.state.selectedTaskIds.clear()
       updateSelectCheckboxes(ctx.state)
@@ -249,13 +253,23 @@ export function handleTableKeyDown(e: KeyboardEvent, ctx: TableContext): void {
       if (!ctx.state.selectedTaskId) return
       e.preventDefault()
       const task = findTask(ctx.project.tasks, ctx.state.selectedTaskId)
-      if (task) openTaskModal(ctx.plugin, ctx.project, { task, onSave: async () => { await ctx.onRefresh() } })
+      if (task) {
+        openTaskModal(ctx.plugin, ctx.project, {
+          task,
+          onSave: async () => {
+            await ctx.onRefresh()
+          }
+        })
+      }
       break
     }
     case 'Delete':
     case 'Backspace': {
       e.preventDefault()
-      if (ctx.state.selectedTaskIds.size > 0) { ctx.onBulkDelete(); break }
+      if (ctx.state.selectedTaskIds.size > 0) {
+        ctx.onBulkDelete()
+        break
+      }
       if (!ctx.state.selectedTaskId) return
       const id = ctx.state.selectedTaskId
       const currentIdx = rows.indexOf(id)
@@ -269,9 +283,7 @@ export function handleTableKeyDown(e: KeyboardEvent, ctx: TableContext): void {
 
 export function getVisibleTaskIds(state: TableState): string[] {
   if (!state.tableBody) return []
-  return Array.from(state.tableBody.querySelectorAll('tr[data-task-id]')).map(
-    (r) => (r as HTMLElement).dataset.taskId!
-  )
+  return Array.from(state.tableBody.querySelectorAll('tr[data-task-id]')).map((r) => (r as HTMLElement).dataset.taskId!)
 }
 
 async function deleteTask(id: string, ctx: TableContext): Promise<void> {
