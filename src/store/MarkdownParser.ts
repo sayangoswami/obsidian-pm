@@ -47,16 +47,17 @@ interface ParsedTokens {
   type: TaskType
 }
 
+// Matches M/D/YY, M/D/YYYY, or YYYY-MM-DD
+const DATE_PAT = /\d{1,2}\/\d{1,2}\/(?:\d{2}|\d{4})|\d{4}-\d{2}-\d{2}/
+
 /**
  * Extract structured tokens from the raw text after `- [X] `.
  *
- * Token extraction order (all are stripped from the text before deriving title):
- *   1. ID  — leading token matching /^\d+(\.\d+)+/
- *   2. #tags
- *   3. due:DATE
- *   4. start:DATE
- *   5. after:ID1,ID2
- *   6. priority  — trailing ! / !! / !!!
+ * Supports both natural-language date format and legacy token format:
+ *   - New:    "from DATE[, by DATE]"  |  "by DATE"
+ *   - Legacy: "start:DATE"  |  "due:DATE"
+ * Title ends with a period in the new format; the period is stripped.
+ * #tags, after:IDs, and !/!!/!!! are unchanged.
  */
 export function parseTaskText(text: string): ParsedTokens {
   let rest = text.trim()
@@ -76,30 +77,43 @@ export function parseTaskText(text: string): ParsedTokens {
     return ''
   })
 
-  // 3. due:DATE
-  let due = ''
-  rest = rest.replace(/\bdue:([\d\-/]+)/i, (_, raw) => {
-    due = parseDate(raw)
-    return ''
-  })
-
-  // 4. start:DATE
+  // 3. Dates — new format: "from DATE[, by DATE]" (combined first to avoid orphan commas)
   let start = ''
-  rest = rest.replace(/\bstart:([\d\-/]+)/i, (_, raw) => {
-    start = parseDate(raw)
+  let due = ''
+  const fromByRe = new RegExp(
+    `\\bfrom\\s+(${DATE_PAT.source})(?:\\s*,?\\s*by\\s+(${DATE_PAT.source}))?`,
+    'i'
+  )
+  rest = rest.replace(fromByRe, (_, startRaw: string, dueRaw?: string) => {
+    start = parseDate(startRaw)
+    if (dueRaw) due = parseDate(dueRaw)
+    return ''
+  })
+  // Standalone "by DATE" (when no "from" precedes it)
+  rest = rest.replace(new RegExp(`\\bby\\s+(${DATE_PAT.source})`, 'i'), (_, dueRaw: string) => {
+    due = due || parseDate(dueRaw)
+    return ''
+  })
+  // Legacy: "due:DATE" and "start:DATE"
+  rest = rest.replace(/\bdue:([\d\-/]+)/i, (_, raw: string) => {
+    due = due || parseDate(raw)
+    return ''
+  })
+  rest = rest.replace(/\bstart:([\d\-/]+)/i, (_, raw: string) => {
+    start = start || parseDate(raw)
     return ''
   })
 
-  // 5. after:ID1,ID2,...
+  // 4. after:ID1,ID2,...
   const dependencies: string[] = []
-  rest = rest.replace(/\bafter:([\d.,]+)/i, (_, raw) => {
+  rest = rest.replace(/\bafter:([\d.,]+)/i, (_, raw: string) => {
     dependencies.push(...raw.split(',').map((s: string) => s.trim()).filter(Boolean))
     return ''
   })
 
-  // 6. Priority — standalone ! / !! / !!! (not part of a word)
+  // 5. Priority — standalone ! / !! / !!! (not part of a word)
   let priority: TaskPriority = 'low'
-  rest = rest.replace(/(?<!\w)(!!!|!!|!)(?!\w)/g, (_, marks) => {
+  rest = rest.replace(/(?<!\w)(!!!|!!|!)(?!\w)/g, (_, marks: string) => {
     if (marks === '!!!') priority = 'critical'
     else if (marks === '!!') priority = 'high'
     else priority = 'medium'
@@ -109,7 +123,8 @@ export function parseTaskText(text: string): ParsedTokens {
   // Milestone detection — treat "milestone" tag as type
   const type: TaskType = tags.includes('milestone') ? 'milestone' : 'task'
 
-  const title = rest.replace(/\s+/g, ' ').trim()
+  // Strip trailing period (sentence terminator separating title from metadata)
+  const title = rest.replace(/\s+/g, ' ').trim().replace(/\.$/, '')
 
   return { id, title, tags: tags.filter(t => t !== 'milestone'), due, start, priority, dependencies, type }
 }
@@ -133,8 +148,8 @@ export interface ParsedFile {
  * - `## Heading` lines start a named group (any level heading).
  * - `- [X] ...` lines are task list items; indentation (2 spaces per level)
  *   determines parent-child relationships.
- * - Non-task lines are ignored for task purposes but the group context is
- *   preserved so the serializer can reconstruct them.
+ * - Non-task, non-heading lines that immediately follow a task (no blank line
+ *   in between) are collected as that task's description.
  * - Subtasks inherit their parent's group (group is only set on top-level tasks).
  */
 export function parseTasksFile(content: string): ParsedFile {
@@ -148,6 +163,8 @@ export function parseTasksFile(content: string): ParsedFile {
   const stack: Array<{ task: Task; depth: number }> = []
   // Top-level tasks in order
   const roots: Task[] = []
+  // Most recently parsed task — description lines are attached to it
+  let lastTask: Task | null = null
 
   const trackGroup = (g: string | null) => {
     if (!seenGroups.has(g)) {
@@ -160,9 +177,16 @@ export function parseTasksFile(content: string): ParsedFile {
   // (will be added lazily when first task without header is encountered)
 
   for (const line of lines) {
+    // Blank line: end description collection
+    if (line.trim() === '') {
+      lastTask = null
+      continue
+    }
+
     // Heading → new group
     const headingMatch = /^#{1,6}\s+(.+)$/.exec(line)
     if (headingMatch) {
+      lastTask = null
       currentGroup = headingMatch[1].trim()
       trackGroup(currentGroup)
       continue
@@ -170,48 +194,58 @@ export function parseTasksFile(content: string): ParsedFile {
 
     // Task list item
     const taskMatch = /^(\s*)- \[(.)\] (.+)$/.exec(line)
-    if (!taskMatch) continue
+    if (taskMatch) {
+      const [, indent, checkbox, rawText] = taskMatch
+      const depth = Math.floor(indent.length / 2)
+      const status = CHECKBOX_TO_STATUS[checkbox] ?? 'todo'
+      const tokens = parseTaskText(rawText)
 
-    const [, indent, checkbox, rawText] = taskMatch
-    const depth = Math.floor(indent.length / 2)
-    const status = CHECKBOX_TO_STATUS[checkbox] ?? 'todo'
-    const tokens = parseTaskText(rawText)
+      const now = new Date().toISOString()
+      const task: Task = {
+        id: tokens.id,
+        title: tokens.title,
+        description: '',
+        type: tokens.type,
+        status,
+        priority: tokens.priority,
+        start: tokens.start,
+        due: tokens.due,
+        progress: 0,
+        tags: tokens.tags,
+        subtasks: [],
+        dependencies: tokens.dependencies,
+        group: depth === 0 ? currentGroup : null,
+        collapsed: false,
+        createdAt: now,
+        updatedAt: now,
+      }
 
-    const now = new Date().toISOString()
-    const task: Task = {
-      id: tokens.id,
-      title: tokens.title,
-      description: '',
-      type: tokens.type,
-      status,
-      priority: tokens.priority,
-      start: tokens.start,
-      due: tokens.due,
-      progress: 0,
-      tags: tokens.tags,
-      subtasks: [],
-      dependencies: tokens.dependencies,
-      group: depth === 0 ? currentGroup : null,
-      collapsed: false,
-      createdAt: now,
-      updatedAt: now,
+      // Pop stack back to the correct parent depth
+      while (stack.length > 0 && stack[stack.length - 1].depth >= depth) {
+        stack.pop()
+      }
+
+      if (stack.length === 0) {
+        // Top-level task
+        if (!seenGroups.has(currentGroup)) trackGroup(currentGroup)
+        roots.push(task)
+      } else {
+        // Subtask — attach to the nearest shallower task
+        stack[stack.length - 1].task.subtasks.push(task)
+      }
+
+      stack.push({ task, depth })
+      lastTask = task
+      continue
     }
 
-    // Pop stack back to the correct parent depth
-    while (stack.length > 0 && stack[stack.length - 1].depth >= depth) {
-      stack.pop()
+    // Description line — attach to the most recent task
+    if (lastTask) {
+      const stripped = line.trim()
+      lastTask.description = lastTask.description
+        ? `${lastTask.description}\n${stripped}`
+        : stripped
     }
-
-    if (stack.length === 0) {
-      // Top-level task
-      if (!seenGroups.has(currentGroup)) trackGroup(currentGroup)
-      roots.push(task)
-    } else {
-      // Subtask — attach to the nearest shallower task
-      stack[stack.length - 1].task.subtasks.push(task)
-    }
-
-    stack.push({ task, depth })
   }
 
   // Compute progress for all tasks bottom-up
