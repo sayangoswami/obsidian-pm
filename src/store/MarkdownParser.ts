@@ -63,6 +63,7 @@ export function parseDate(raw: string): string {
 interface ParsedTokens {
   id: string
   title: string
+  description: string
   tags: string[]
   due: string
   start: string
@@ -95,6 +96,9 @@ export function parseTaskText(text: string): ParsedTokens {
     rest = rest.slice(idMatch[0].length)
   }
 
+  // Strip optional [] brackets wrapping metadata groups, e.g. [after:1 !!] [from DATE, to DATE]
+  rest = rest.replace(/\[([^\]]*)\]/g, '$1')
+
   // 2. Tags
   const tags: string[] = []
   rest = rest.replace(/#([\w-]+)/g, (_, tag) => {
@@ -102,17 +106,20 @@ export function parseTaskText(text: string): ParsedTokens {
     return ''
   })
 
-  // 3. Dates — new format: "from DATE[, by DATE]" (combined first to avoid orphan commas)
+  // 3. Dates — "from DATE[, by/to DATE]" combined first to avoid orphan commas
   let start = ''
   let due = ''
-  const fromByRe = new RegExp(`\\bfrom\\s+(${DATE_PAT.source})(?:\\s*,?\\s*by\\s+(${DATE_PAT.source}))?`, 'i')
+  const fromByRe = new RegExp(
+    `\\bfrom\\s+(${DATE_PAT.source})(?:\\s*,?\\s*(?:by|to)\\s+(${DATE_PAT.source}))?`,
+    'i'
+  )
   rest = rest.replace(fromByRe, (_, startRaw: string, dueRaw?: string) => {
     start = parseDate(startRaw)
     if (dueRaw) due = parseDate(dueRaw)
     return ''
   })
-  // Standalone "by DATE" (when no "from" precedes it)
-  rest = rest.replace(new RegExp(`\\bby\\s+(${DATE_PAT.source})`, 'i'), (_, dueRaw: string) => {
+  // Standalone "by/to DATE" (when no "from" precedes it)
+  rest = rest.replace(new RegExp(`\\b(?:by|to)\\s+(${DATE_PAT.source})`, 'i'), (_, dueRaw: string) => {
     due = due || parseDate(dueRaw)
     return ''
   })
@@ -151,10 +158,20 @@ export function parseTaskText(text: string): ParsedTokens {
   // Milestone detection — treat "milestone" tag as type
   const type: TaskType = tags.includes('milestone') ? 'milestone' : 'task'
 
-  // Strip trailing period (sentence terminator separating title from metadata)
-  const title = rest.replace(/\s+/g, ' ').trim().replace(/\.$/, '')
+  // Split remaining text on first ". " — left = title, right = inline description.
+  // A lone trailing period (no following text) is stripped from the title.
+  const cleaned = rest.replace(/\s+/g, ' ').trim()
+  const sepIdx = cleaned.search(/\.\s+/)
+  let title: string
+  let description = ''
+  if (sepIdx >= 0) {
+    title = cleaned.slice(0, sepIdx).trim()
+    description = cleaned.slice(sepIdx + 1).trim()
+  } else {
+    title = cleaned.replace(/\.$/, '')
+  }
 
-  return { id, title, tags: tags.filter((t) => t !== 'milestone'), due, start, priority, dependencies, type }
+  return { id, title, description, tags: tags.filter((t) => t !== 'milestone'), due, start, priority, dependencies, type }
 }
 
 // ─── Parser ───────────────────────────────────────────────────────────────────
@@ -233,7 +250,7 @@ export function parseTasksFile(content: string): ParsedFile {
       const task: Task = {
         id: tokens.id,
         title: tokens.title,
-        description: '',
+        description: tokens.description,
         type: tokens.type,
         status,
         priority: tokens.priority,

@@ -175,6 +175,48 @@ describe('parseTaskText', () => {
     expect(r.priority).toBe('low')
     expect(r.title).toContain('user!input')
   })
+
+  it('splits first sentence as title, rest as inline description', () => {
+    const r = parseTaskText('8 - Run QC on files. Extra context here. Run overnight.')
+    expect(r.title).toBe('Run QC on files')
+    expect(r.description).toBe('Extra context here. Run overnight.')
+  })
+
+  it('description is empty when task has only a title', () => {
+    const r = parseTaskText('1 - Fix bug.')
+    expect(r.title).toBe('Fix bug')
+    expect(r.description).toBe('')
+  })
+
+  it('parses the full example format with brackets and "to" date', () => {
+    const year = new Date().getFullYear()
+    const r = parseTaskText(
+      '8 - Run QC on Gut community BLOW5 files. Gut runs will take longer. Run overnight. #qc #gut [after:6 !!] [from 10 Jun, to 14 Jun]'
+    )
+    expect(r.id).toBe('8')
+    expect(r.title).toBe('Run QC on Gut community BLOW5 files')
+    expect(r.description).toBe('Gut runs will take longer. Run overnight.')
+    expect(r.tags).toEqual(['qc', 'gut'])
+    expect(r.dependencies).toEqual(['6'])
+    expect(r.priority).toBe('high')
+    expect(r.start).toBe(`${year}-06-10`)
+    expect(r.due).toBe(`${year}-06-14`)
+  })
+
+  it('accepts "to DATE" as alias for "by DATE"', () => {
+    const year = new Date().getFullYear()
+    const r = parseTaskText('1 - Task. from 1 Jun, to 21 Jun')
+    expect(r.start).toBe(`${year}-06-01`)
+    expect(r.due).toBe(`${year}-06-21`)
+  })
+
+  it('strips [] brackets around metadata groups', () => {
+    const r = parseTaskText('1 - Fix bug. [after:2 !!] [by 2025-01-15]')
+    expect(r.dependencies).toEqual(['2'])
+    expect(r.priority).toBe('high')
+    expect(r.due).toBe('2025-01-15')
+    expect(r.description).toBe('')
+  })
 })
 
 // ─── parseTasksFile ───────────────────────────────────────────────────────────
@@ -285,6 +327,14 @@ describe('parseTasksFile', () => {
     const { tasks } = parseTasksFile(content)
     // 2 of 3 subtasks done → ~67%
     expect(tasks[0].progress).toBeCloseTo(67, 0)
+  })
+
+  it('parses inline description from the task line itself', () => {
+    const content = `- [/] 8 - Run QC on files. Extra context here. Run overnight. #qc`
+    const { tasks } = parseTasksFile(content)
+    expect(tasks[0].title).toBe('Run QC on files')
+    expect(tasks[0].description).toBe('Extra context here. Run overnight.')
+    expect(tasks[0].tags).toEqual(['qc'])
   })
 
   it('collects description lines following a task', () => {

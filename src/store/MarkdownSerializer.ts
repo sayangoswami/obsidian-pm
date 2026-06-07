@@ -34,8 +34,11 @@ export function serializeTaskLine(task: Task, depth = 0): string {
   const indent = '\t'.repeat(depth)
   const checkbox = checkboxFor(task.status)
 
-  // Title ends with a period; metadata follows after it
-  const parts: string[] = [`${task.id} -`, `${task.title}.`]
+  // Title sentence; description (if any) follows inline as additional sentences
+  const titlePart = task.description.trim()
+    ? `${task.title}. ${task.description.replace(/\n/g, ' ').trim().replace(/\.?$/, '.')}`
+    : `${task.title}.`
+  const parts: string[] = [`${task.id} -`, titlePart]
 
   // Date clause: "from START, by DUE" | "from START" | "by DUE"
   if (task.start && task.due) parts.push(`from ${task.start}, by ${task.due}`)
@@ -108,14 +111,6 @@ export function serializeTasksFile(tasks: Task[], groupOrder: Array<string | nul
 /** Recursively serialise a task and all its subtasks into an array of lines. */
 function serializeTaskSubtree(task: Task, depth: number): string[] {
   const lines: string[] = [serializeTaskLine(task, depth)]
-
-  if (task.description.trim()) {
-    const descIndent = '\t'.repeat(depth + 1)
-    for (const descLine of task.description.split('\n')) {
-      lines.push(`${descIndent}${descLine}`)
-    }
-  }
-
   for (const sub of task.subtasks) {
     lines.push(...serializeTaskSubtree(sub, depth + 1))
   }

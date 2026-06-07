@@ -217,7 +217,7 @@ describe('serializeTasksFile', () => {
     expect(out.indexOf('## Beta')).toBeLessThan(out.indexOf('## Alpha'))
   })
 
-  it('serialises description lines indented below the task', () => {
+  it('serialises description inline after the title sentence', () => {
     const tasks: Task[] = [
       {
         id: '1',
@@ -239,9 +239,7 @@ describe('serializeTasksFile', () => {
       }
     ]
     const out = serializeTasksFile(tasks, [null])
-    expect(out).toContain('- [ ] 1 - Fix bug.')
-    expect(out).toContain('\tLine one.')
-    expect(out).toContain('\tLine two.')
+    expect(out).toContain('- [ ] 1 - Fix bug. Line one. Line two.')
   })
 })
 
@@ -310,13 +308,17 @@ describe('markdown round-trip', () => {
     expect(output.indexOf('## Work')).toBeLessThan(output.indexOf('## Personal'))
   })
 
-  it('round-trips description lines', () => {
+  it('round-trips description — indented lines migrate to inline on save', () => {
     const input = `- [ ] 1 - Fix bug.\n      First line.\n      Second line.\n- [ ] 2 - Other task.\n`
     const output = roundTrip(input)
-    expect(output).toContain('- [ ] 1 - Fix bug.')
-    expect(output).toContain('\tFirst line.')
-    expect(output).toContain('\tSecond line.')
+    expect(output).toContain('- [ ] 1 - Fix bug. First line. Second line.')
     expect(output).toContain('- [ ] 2 - Other task.')
+  })
+
+  it('round-trips inline description', () => {
+    const input = `- [ ] 1 - Fix bug. Extra context about the bug.\n`
+    const output = roundTrip(input)
+    expect(output).toContain('- [ ] 1 - Fix bug. Extra context about the bug.')
   })
 
   it('handles empty file', () => {
